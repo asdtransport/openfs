@@ -1,0 +1,17 @@
+{
+  "name": "@openfs/bot-telegram",
+  "version": "0.1.0",
+  "description": "Telegram bot for OpenFS enterprise wiki — ask questions, ingest URLs, grep pages, sync knowledge",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/bot.ts",
+    "dev": "bun run --hot src/bot.ts"
+  },
+  "dependencies": {
+    "grammy": "^1.30.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT"
+}

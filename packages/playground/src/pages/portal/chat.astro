@@ -1,0 +1,931 @@
+---
+import PortalShell from '../../components/PortalShell.astro';
+---
+<PortalShell title="Ask AI" active="chat" noPadding>
+
+<!-- marked.js for proper markdown rendering -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+
+<style is:global>
+  /* ── Full-height chat layout ── */
+  .chat-wrap {
+    display: flex;
+    height: 100%;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Left settings panel ── */
+  .chat-settings {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .setting-group { display: flex; flex-direction: column; gap: 0.35rem; }
+  .setting-label {
+    font-size: 0.63rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .setting-select {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .mode-row { display: flex; gap: 0.3rem; }
+  .mode-btn {
+    flex: 1;
+    padding: 0.32rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.1s;
+    font-family: var(--font);
+  }
+  .mode-btn.on { background: var(--navy); color: white; border-color: var(--navy); }
+
+  .history-section { margin-top: auto; }
+  .history-item {
+    padding: 0.38rem 0.5rem;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    color: var(--text2);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s;
+  }
+  .history-item:hover { background: var(--surface2); }
+  .clear-btn {
+    width: 100%;
+    padding: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 0.4rem;
+    font-family: var(--font);
+  }
+  .clear-btn:hover { background: var(--red-light); color: var(--red); border-color: var(--red); }
+
+  /* ── Main chat ── */
+  .chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg);
+  }
+
+  /* ── Messages ── */
+  .messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    scroll-behavior: smooth;
+  }
+
+  /* Welcome */
+  .welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    color: var(--muted);
+    padding: 3rem 2rem;
+    gap: 1rem;
+  }
+  .welcome-icon {
+    width: 56px; height: 56px;
+    background: var(--navy);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    margin-bottom: 0.25rem;
+  }
+  .welcome-screen h2 { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+  .welcome-screen p { font-size: 0.82rem; max-width: 420px; line-height: 1.6; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 0.5rem; }
+  .chip {
+    padding: 0.45rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .chip:hover { background: var(--navy-light); border-color: var(--navy); color: var(--navy); }
+
+  /* User message */
+  .msg-row { display: flex; flex-direction: column; }
+  .msg-row.user { align-items: flex-end; }
+  .msg-row.ai { align-items: flex-start; max-width: 100%; }
+
+  .user-bubble {
+    background: var(--navy);
+    color: white;
+    padding: 0.75rem 1.1rem;
+    border-radius: 12px 12px 3px 12px;
+    font-size: 0.88rem;
+    max-width: 72%;
+    line-height: 1.55;
+    word-break: break-word;
+  }
+
+  /* AI message card */
+  .ai-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px 12px 12px 12px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 860px;
+  }
+
+  /* AI header */
+  .ai-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: var(--navy-dark);
+    color: rgba(255,255,255,0.7);
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .ai-header-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
+
+  /* Thinking steps — expands during query, collapses to summary after */
+  .thinking-steps {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.3s ease;
+    max-height: 120px;
+  }
+  .thinking-steps.collapsed {
+    max-height: 32px;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 1rem;
+  }
+  .think-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+  .think-step.visible { opacity: 1; transform: translateY(0); }
+  .think-step.done { color: var(--green); }
+  .think-step.active { color: var(--navy); font-weight: 500; }
+  .think-icon { font-size: 0.78rem; flex-shrink: 0; }
+  /* In collapsed mode, hide all but the summary */
+  .thinking-steps.collapsed .think-step { display: none; }
+  .think-summary {
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: none;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .thinking-steps.collapsed .think-summary { display: flex; }
+
+  /* Answer body */
+  .ai-body {
+    padding: 1.1rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  /* Markdown styles within .ai-body */
+  .ai-body h1, .ai-body h2, .ai-body h3, .ai-body h4 {
+    font-weight: 700;
+    color: var(--text);
+    margin: 1rem 0 0.4rem;
+    line-height: 1.3;
+  }
+  .ai-body h1 { font-size: 1.05rem; }
+  .ai-body h2 { font-size: 0.95rem; }
+  .ai-body h3, .ai-body h4 { font-size: 0.87rem; }
+  .ai-body p { margin: 0 0 0.65rem; }
+  .ai-body p:last-child { margin-bottom: 0; }
+  .ai-body ul, .ai-body ol {
+    margin: 0.4rem 0 0.65rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .ai-body li { line-height: 1.55; }
+  .ai-body strong { font-weight: 650; color: var(--text); }
+  .ai-body em { font-style: italic; }
+  .ai-body code {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+  }
+  .ai-body pre {
+    background: var(--navy-dark);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 0.65rem 0;
+  }
+  .ai-body pre code {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.88);
+    font-size: 0.78rem;
+    padding: 0;
+  }
+  .ai-body blockquote {
+    border-left: 3px solid var(--gold);
+    padding: 0.4rem 0.9rem;
+    margin: 0.5rem 0;
+    color: var(--text2);
+    background: var(--gold-light);
+    border-radius: 0 5px 5px 0;
+  }
+  .ai-body table { border-collapse: collapse; width: 100%; margin: 0.65rem 0; font-size: 0.8rem; }
+  .ai-body th {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 0.45rem 0.75rem;
+    font-weight: 600;
+    text-align: left;
+  }
+  .ai-body td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; }
+  .ai-body a { color: var(--navy); text-decoration: underline; }
+
+  /* Inline citation reference badges [1][2] in answer text */
+  .ref-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px; height: 18px;
+    background: var(--navy);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    margin: 0 1px;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background 0.1s;
+    text-decoration: none;
+  }
+  .ref-badge:hover { background: var(--gold); }
+
+  /* Sources section */
+  .sources-section {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1.25rem 0.85rem;
+    background: var(--surface2);
+  }
+  .sources-label {
+    font-size: 0.63rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 0.5rem;
+  }
+  .sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .source-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.42rem 0.65rem;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  .source-card:hover { border-color: var(--navy); background: var(--navy-light); }
+  .source-card:hover .src-title { color: var(--navy); }
+  .src-score {
+    font-size: 0.6rem; font-weight: 700; color: white;
+    background: var(--navy); border-radius: 4px; padding: 0.05rem 0.3rem;
+    flex-shrink: 0;
+  }
+  .src-badge {
+    font-size: 0.58rem; font-weight: 600; border-radius: 4px; padding: 0.05rem 0.3rem;
+    flex-shrink: 0; letter-spacing: 0.01em;
+  }
+  .src-badge-sem  { background: rgba(30,58,95,0.12); color: var(--navy); }
+  .src-badge-kw   { background: var(--surface2); color: var(--navy); border: 1px solid var(--border); }
+  .src-badge-both { background: var(--gold); color: white; }
+  .src-title {
+    font-size: 0.72rem; font-weight: 600; color: var(--navy); text-transform: capitalize;
+  }
+  .src-path {
+    font-size: 0.6rem; color: var(--muted); margin-left: auto; font-family: var(--mono);
+  }
+  .src-excerpt {
+    width: 100%; font-size: 0.65rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  /* Feedback bar */
+  .feedback-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .fb-label { font-size: 0.7rem; color: var(--muted); }
+  .fb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: var(--font);
+  }
+  .fb-btn:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+  .fb-btn.up   { background: var(--green-light); border-color: var(--green); color: var(--green); }
+  .fb-btn.down { background: var(--red-light);   border-color: var(--red);   color: var(--red); }
+  .fb-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .fb-thanks { font-size: 0.7rem; color: var(--green); display: none; margin-left: 0.25rem; }
+
+  /* Typing indicator */
+  .typing-bubble {
+    display: flex;
+    gap: 5px;
+    padding: 0.85rem 1.1rem;
+    align-items: center;
+  }
+  .t-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border2);
+    animation: tdot 1.2s infinite;
+  }
+  .t-dot:nth-child(2) { animation-delay: 0.2s; }
+  .t-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes tdot { 0%,60%,100%{transform:translateY(0);background:var(--border2)} 30%{transform:translateY(-6px);background:var(--navy)} }
+
+  /* Error bubble */
+  .error-card {
+    background: var(--red-light);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    color: var(--red);
+  }
+
+  /* ── Input bar ── */
+  .input-bar {
+    padding: 0.85rem 1.1rem;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-end;
+  }
+  .input-wrap { flex: 1; }
+  #q {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 0.88rem;
+    font-family: var(--font);
+    border: 1.5px solid var(--border2);
+    border-radius: 10px;
+    resize: none;
+    min-height: 48px;
+    max-height: 160px;
+    line-height: 1.55;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #q:focus { border-color: var(--navy); }
+  #q::placeholder { color: var(--muted); }
+  .send-btn {
+    width: 42px; height: 42px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.12s;
+  }
+  .send-btn:hover { background: var(--navy-mid); }
+  .send-btn:disabled { background: var(--border2); cursor: not-allowed; }
+
+  /* ── Source modal ── */
+  .src-modal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+  .src-modal-box {
+    background: var(--surface);
+    border-radius: 12px;
+    max-width: 680px; width: 100%;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .src-modal-head {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .src-modal-title { font-size: 0.92rem; font-weight: 700; flex: 1; }
+  .src-modal-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--text2);
+    white-space: pre-wrap;
+    font-family: var(--mono);
+    flex: 1;
+  }
+  .src-modal-close {
+    background: none; border: none; cursor: pointer; color: var(--muted); padding: 0.25rem;
+  }
+  .src-modal-close:hover { color: var(--text); }
+</style>
+
+<div class="chat-wrap">
+
+  <!-- Settings sidebar -->
+  <div class="chat-settings">
+    <div class="setting-group">
+      <div class="setting-label">Collection</div>
+      <select class="setting-select" id="sel-collection" onchange="onCollectionChange()">
+        <option>Loading…</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <div class="setting-label">Topic</div>
+      <select class="setting-select" id="sel-topic">
+        <option value="">All topics</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <div class="setting-label">Search Mode</div>
+      <div class="mode-row">
+        <button class="mode-btn on" id="mode-sem" onclick="setMode('semantic')">Semantic</button>
+        <button class="mode-btn" id="mode-kw" onclick="setMode('text')">Keyword</button>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-label">Context Depth</div>
+      <select class="setting-select" id="sel-topk">
+        <option value="5">Fast — Top 5</option>
+        <option value="8" selected>Balanced — Top 8</option>
+        <option value="15">Deep — Top 15</option>
+      </select>
+    </div>
+
+    <div class="history-section">
+      <div class="setting-label" style="margin-bottom:0.4rem">Recent</div>
+      <div id="history-list"></div>
+      <button class="clear-btn" onclick="clearHistory()">Clear history</button>
+    </div>
+  </div>
+
+  <!-- Main chat -->
+  <div class="chat-main">
+    <div class="messages-area" id="msgs">
+      <div class="welcome-screen" id="welcome">
+        <div class="welcome-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <h2>Ask your knowledge base</h2>
+        <p>I search across all ingested documents, synthesize an answer, and cite my sources. Ask anything.</p>
+        <div class="chips">
+          <div class="chip" onclick="ask(this)">What documents are available?</div>
+          <div class="chip" onclick="ask(this)">Summarize the key policies</div>
+          <div class="chip" onclick="ask(this)">What are the security guidelines?</div>
+          <div class="chip" onclick="ask(this)">How does the onboarding process work?</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="q" rows="1"
+          placeholder="Ask a question about your documents…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"
+          oninput="autoH(this)"></textarea>
+      </div>
+      <button class="send-btn" id="send-btn" onclick="send()" title="Send (Enter)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Source detail modal -->
+<div class="src-modal" id="src-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="src-modal-box">
+    <div class="src-modal-head">
+      <div class="src-modal-title" id="smt"></div>
+      <button class="src-modal-close" onclick="document.getElementById('src-modal').style.display='none'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="src-modal-body" id="smb"></div>
+  </div>
+</div>
+
+<script is:inline>
+  // API and token come from PortalShell globals
+  let mode = 'semantic';
+  let msgId = 0;
+  let activeSources = [];
+  let chatHistory = JSON.parse(sessionStorage.getItem('q_history') || '[]');
+
+  function authH() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }; }
+  function autoH(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px'; }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function basename(p) { return String(p).split(/[\\/]/).pop() || p; }
+  function cleanTitle(t) {
+    // Strip .Meta suffix, normalize
+    return String(t||'').replace(/\.Meta$/i,'').replace(/([a-z])([A-Z])/g,'$1 $2').trim();
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────
+  async function init() {
+    await loadCollections();
+    renderHistory();
+  }
+
+  async function loadCollections() {
+    try {
+      const res = await fetch(`${API}/chroma/collections`, { headers: authH() });
+      const cols = await res.json();
+      const sel = document.getElementById('sel-collection');
+      sel.innerHTML = cols.map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${c.count})</option>`).join('');
+      await loadTopics();
+    } catch (e) {
+      document.getElementById('sel-collection').innerHTML = '<option value="openfs-knowledge">openfs-knowledge</option>';
+    }
+  }
+
+  async function loadTopics() {
+    try {
+      const col = document.getElementById('sel-collection').value;
+      const res = await fetch(`${API}/chroma/topics?collection=${encodeURIComponent(col)}`, { headers: authH() });
+      const data = await res.json();
+      const sel = document.getElementById('sel-topic');
+      sel.innerHTML = '<option value="">All topics</option>' +
+        (data.topics || []).map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    } catch {}
+  }
+
+  function onCollectionChange() { loadTopics(); }
+  function setMode(m) {
+    mode = m;
+    document.getElementById('mode-sem').classList.toggle('on', m === 'semantic');
+    document.getElementById('mode-kw').classList.toggle('on', m === 'text');
+  }
+
+  // ── Send ──────────────────────────────────────────────────────────
+  function ask(el) { document.getElementById('q').value = el.textContent; send(); }
+
+  async function send() {
+    const input = document.getElementById('q');
+    const question = input.value.trim();
+    if (!question) return;
+
+    // Remove welcome
+    document.getElementById('welcome')?.remove();
+
+    // Append user message
+    appendUser(question);
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('send-btn').disabled = true;
+
+    // Save history
+    chatHistory.unshift({ q: question, ts: Date.now() });
+    chatHistory = chatHistory.slice(0, 20);
+    sessionStorage.setItem('q_history', JSON.stringify(chatHistory));
+    renderHistory();
+
+    const collection = document.getElementById('sel-collection').value;
+    const topic = document.getElementById('sel-topic').value;
+    const topK = parseInt(document.getElementById('sel-topk').value);
+
+    // Show thinking card
+    const id = ++msgId;
+    const card = createAiCard(id);
+    const msgs = document.getElementById('msgs');
+    msgs.appendChild(card);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Thinking steps animation
+    await showThinking(id, topK);
+
+    try {
+      const res = await fetch(`${API}/portal/query`, {
+        method: 'POST',
+        headers: authH(),
+        body: JSON.stringify({ question, collection, topic: topic || undefined, topK, mode }),
+      });
+      const data = await res.json();
+
+      const sources = data.sources || [];
+      clearThinking(id, sources.length);
+
+      if (!res.ok) {
+        setError(id, data.error || 'Query failed');
+      } else {
+        activeSources = sources;
+        setAnswer(id, data.answer, sources, question);
+      }
+    } catch (e) {
+      clearThinking(id, 0);
+      setError(id, e instanceof TypeError && e.message.includes('fetch') ? 'Cannot reach server — is it running?' : (e.message || 'Unexpected error'));
+    }
+
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  // ── Message builders ──────────────────────────────────────────────
+  function appendUser(text) {
+    const msgs = document.getElementById('msgs');
+    const div = document.createElement('div');
+    div.className = 'msg-row user';
+    div.innerHTML = `<div class="user-bubble">${esc(text)}</div>`;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function createAiCard(id) {
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.id = `row-${id}`;
+    row.innerHTML = `
+      <div class="ai-card" id="card-${id}">
+        <div class="ai-header">
+          <div class="ai-header-dot"></div>
+          <span id="hdr-${id}">OpenFS AI &mdash; thinking…</span>
+        </div>
+        <div class="thinking-steps" id="think-${id}">
+          <div class="think-summary" id="tsum-${id}"></div>
+        </div>
+        <div class="ai-body" id="body-${id}">
+          <div class="typing-bubble"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
+        </div>
+      </div>`;
+    return row;
+  }
+
+  async function showThinking(id, topK) {
+    const steps = [
+      { icon: '🔍', text: `Searching knowledge base (top ${topK})…` },
+      { icon: '📄', text: 'Evaluating document relevance…' },
+      { icon: '🧠', text: 'Synthesizing answer…' },
+    ];
+    const container = document.getElementById(`think-${id}`);
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      const el = document.createElement('div');
+      el.className = 'think-step';
+      el.innerHTML = `<span class="think-icon">${s.icon}</span><span>${s.text}</span>`;
+      container.appendChild(el);
+      await sleep(60);
+      el.classList.add('visible', 'active');
+      if (i > 0) container.children[i - 1].classList.remove('active');
+      if (i > 0) container.children[i - 1].classList.add('done');
+      await sleep(i === 2 ? 200 : 400);
+    }
+  }
+
+  function clearThinking(id, sourceCount) {
+    const think = document.getElementById(`think-${id}`);
+    if (!think) return;
+    // Mark all steps done
+    Array.from(think.querySelectorAll('.think-step')).forEach(el => {
+      el.classList.remove('active'); el.classList.add('done');
+    });
+    // Populate summary line
+    const sum = document.getElementById(`tsum-${id}`);
+    if (sum) {
+      sum.innerHTML = `<span style="color:var(--green)">✓</span> Searched · Evaluated · Synthesized` +
+        (sourceCount ? ` &mdash; <strong>${sourceCount}</strong> source${sourceCount !== 1 ? 's' : ''} found` : '');
+    }
+    // Collapse after short delay
+    setTimeout(() => think.classList.add('collapsed'), 300);
+  }
+
+  function setAnswer(id, answer, sources, question) {
+    // Update header
+    const card = document.getElementById(`card-${id}`);
+    const hdr = document.getElementById(`hdr-${id}`);
+    if (hdr) hdr.textContent = `OpenFS AI \u2014 ${sources.length} source${sources.length !== 1 ? 's' : ''} referenced`;
+
+    // Render markdown with citation badges
+    const body = document.getElementById(`body-${id}`);
+    const rawHtml = typeof marked !== 'undefined'
+      ? marked.parse(answer)
+      : `<p>${esc(answer).replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')}</p>`;
+
+    // Replace [N] with clickable badge
+    const withCites = rawHtml.replace(/\[(\d+)\]/g, (_, n) =>
+      `<span class="ref-badge" onclick="openSource(${parseInt(n)-1})" title="View source ${n}">${n}</span>`
+    );
+    body.innerHTML = withCites;
+
+    // Sources list
+    if (sources.length) {
+      const srcDiv = document.createElement('div');
+      srcDiv.className = 'sources-section';
+      srcDiv.innerHTML = `
+        <div class="sources-label">${sources.length} source${sources.length !== 1 ? 's' : ''} referenced</div>
+        <div class="sources-list">
+          ${sources.map((s, i) => {
+            const title = cleanTitle(s.title || basename(s.source) || `Source ${i+1}`);
+            const excerpt = cleanExcerpt(s.content);
+            const mt = s.matchType || 'semantic';
+            const badgeCls = mt === 'keyword+semantic' ? 'src-badge-both' : mt === 'keyword' ? 'src-badge-kw' : 'src-badge-sem';
+            const matchBadge = `<span class="src-badge ${badgeCls}">${esc(mt)}</span>`;
+            const scoreVal = s.score != null && s.score < 1 ? `<span class="src-score">${(s.score*100).toFixed(0)}%</span>` : '';
+            const srcPath = (s.source || '').split('/').slice(-2).join('/');
+            const src = srcPath ? `<span class="src-path">${esc(srcPath)}</span>` : '';
+            const excerpHtml = excerpt.length > 10 ? `<div class="src-excerpt">${esc(excerpt.slice(0,130))}…</div>` : '';
+            return `<div class="source-card" onclick="openSource(${i})">
+              ${matchBadge}
+              ${scoreVal}
+              <span class="src-title">${esc(title)}</span>
+              ${src}
+              ${excerpHtml}
+            </div>`;
+          }).join('')}
+        </div>`;
+      card.appendChild(srcDiv);
+    }
+
+    // Feedback bar — use data attributes to avoid newlines breaking innerHTML
+    const fb = document.createElement('div');
+    fb.className = 'feedback-bar';
+    fb.innerHTML = `
+      <span class="fb-label">Was this helpful?</span>
+      <button class="fb-btn" id="up-${id}" data-id="${id}" data-vote="1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+        Yes
+      </button>
+      <button class="fb-btn" id="dn-${id}" data-id="${id}" data-vote="-1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+        No
+      </button>
+      <span class="fb-thanks" id="ty-${id}">Thanks!</span>`;
+    // Store question/answer on buttons via dataset (safe from newline/quote issues)
+    const upBtn = fb.querySelector(`#up-${id}`);
+    const dnBtn = fb.querySelector(`#dn-${id}`);
+    upBtn.dataset.question = question;
+    upBtn.dataset.answer = answer.slice(0, 500);
+    dnBtn.dataset.question = question;
+    dnBtn.dataset.answer = answer.slice(0, 500);
+    upBtn.addEventListener('click', () => vote(id, 1, upBtn.dataset.question, upBtn.dataset.answer));
+    dnBtn.addEventListener('click', () => vote(id, -1, dnBtn.dataset.question, dnBtn.dataset.answer));
+    card.appendChild(fb);
+  }
+
+  function setError(id, msg) {
+    document.getElementById(`body-${id}`).innerHTML =
+      `<div class="error-card">${esc(msg)}</div>`;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────
+  function cleanExcerpt(text) {
+    // Strip JSON-looking content and markdown syntax for the preview
+    const s = String(text || '');
+    if (s.trim().startsWith('{') || s.trim().startsWith('[')) {
+      try { JSON.parse(s); return '(metadata document)'; } catch {}
+    }
+    return s.replace(/#+\s/g, '').replace(/\*\*/g, '').replace(/`/g, '').replace(/\n+/g, ' ').trim().slice(0, 160);
+  }
+
+  function openSource(i) {
+    const s = activeSources[i];
+    if (!s) return;
+    document.getElementById('smt').textContent = cleanTitle(s.title || basename(s.source) || `Source ${i+1}`);
+    document.getElementById('smb').textContent = s.content || '';
+    document.getElementById('src-modal').style.display = 'flex';
+  }
+
+  async function vote(id, v, question, answer) {
+    const up = document.getElementById(`up-${id}`);
+    const dn = document.getElementById(`dn-${id}`);
+    const ty = document.getElementById(`ty-${id}`);
+    up.disabled = true; dn.disabled = true;
+    up.classList.toggle('up', v === 1);
+    dn.classList.toggle('down', v === -1);
+    ty.style.display = 'inline';
+    try {
+      await fetch(`${API}/portal/feedback`, {
+        method: 'POST',
+        headers: authH(),
+        body: JSON.stringify({
+          question, answer, vote: v,
+          collection: document.getElementById('sel-collection').value,
+          topic: document.getElementById('sel-topic').value || undefined,
+        }),
+      });
+    } catch {}
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    list.innerHTML = chatHistory.slice(0, 12).map((h, i) =>
+      `<div class="history-item" onclick="reask(${i})" title="${esc(h.q)}">${esc(h.q.slice(0,38))}${h.q.length>38?'…':''}</div>`
+    ).join('');
+  }
+
+  function reask(i) {
+    document.getElementById('q').value = chatHistory[i].q;
+    send();
+  }
+
+  function clearHistory() {
+    chatHistory = [];
+    sessionStorage.removeItem('q_history');
+    renderHistory();
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  init();
+</script>
+
+</PortalShell>

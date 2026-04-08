@@ -1,0 +1,615 @@
+---
+import AppShell from '../components/AppShell.astro';
+---
+<AppShell title="Chroma Browser" active="chroma-browser">
+<div class="cb-root">
+
+  <!-- ── Left panel ── -->
+  <div class="cb-left">
+
+    <!-- Toolbar: collection select + refresh -->
+    <div class="cb-toolbar">
+      <select id="col-select" class="form-input" style="flex:1;font-size:0.8rem">
+        <option value="">Loading…</option>
+      </select>
+      <button class="btn btn-sm btn-ghost-dark" id="btn-refresh" title="Refresh">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="cb-stats" id="cb-stats">Select a collection</div>
+
+    <!-- Filters -->
+    <div class="cb-filters">
+      <select id="filter-topic" class="form-input" style="font-size:0.76rem">
+        <option value="">All topics</option>
+      </select>
+      <select id="filter-source" class="form-input" style="font-size:0.76rem;margin-top:4px">
+        <option value="">All sources</option>
+      </select>
+    </div>
+
+    <!-- Search bar -->
+    <div class="cb-search-bar">
+      <input id="search-query" class="form-input" style="font-size:0.78rem" placeholder="Search chunks…" />
+      <div class="search-mode-row">
+        <label class="mode-label"><input type="radio" name="mode" value="semantic" checked> Semantic</label>
+        <label class="mode-label"><input type="radio" name="mode" value="text"> Text</label>
+        <input id="topk" class="form-input" type="number" value="10" min="1" max="100" style="width:52px;font-size:0.76rem" />
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-sm btn-navy" id="btn-search" style="flex:1">Search</button>
+        <button class="btn btn-sm btn-ghost-dark" id="btn-browse" style="flex:1">Browse</button>
+      </div>
+    </div>
+
+    <!-- Chunk list -->
+    <div class="chunk-list" id="chunk-list">
+      <div class="list-empty">Select a collection to browse</div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-bar" id="pagination-bar" style="display:none">
+      <button class="btn btn-sm btn-ghost-dark" id="btn-prev">‹</button>
+      <span class="page-info" id="page-info"></span>
+      <button class="btn btn-sm btn-ghost-dark" id="btn-next">›</button>
+    </div>
+
+  </div>
+
+  <!-- ── Right panel ── -->
+  <div class="cb-right">
+
+    <!-- Empty state -->
+    <div class="cb-empty" id="cb-empty">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <p>Select a chunk to inspect it</p>
+    </div>
+
+    <!-- Chunk detail -->
+    <div class="chunk-detail" id="chunk-detail" style="display:none">
+
+      <div class="detail-header">
+        <div class="detail-title" id="detail-title"></div>
+        <div class="detail-actions">
+          <button class="btn btn-sm btn-ghost-dark" id="btn-delete-chunk">Delete Chunk</button>
+          <button class="btn btn-sm" id="btn-delete-source" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5">Delete All from Source</button>
+        </div>
+      </div>
+
+      <!-- Score bar (search mode only) -->
+      <div class="score-section" id="score-section" style="display:none">
+        <span class="score-label">Relevance</span>
+        <div class="score-bar-wrap">
+          <div class="score-bar-fill" id="score-bar-fill"></div>
+        </div>
+        <span class="score-val" id="score-val"></span>
+      </div>
+
+      <!-- Metadata -->
+      <table class="meta-table" id="detail-meta"></table>
+
+      <!-- Content -->
+      <div class="content-label">Chunk Text</div>
+      <pre class="chunk-content" id="detail-content"></pre>
+
+    </div>
+  </div>
+
+</div>
+
+<style>
+.cb-root {
+  display: flex;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+  background: var(--bg, #f0ece5);
+}
+
+/* ── Left ── */
+.cb-left {
+  width: 300px;
+  min-width: 240px;
+  border-right: 1px solid #ddd;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+.cb-stats {
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  color: #888;
+  border-bottom: 1px solid #eee;
+  background: #fafafa;
+}
+.cb-filters {
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid #eee;
+}
+.cb-search-bar {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+}
+.search-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #555;
+}
+.mode-label { display: flex; align-items: center; gap: 3px; cursor: pointer; }
+
+.chunk-list {
+  flex: 1;
+  overflow-y: auto;
+}
+.list-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #aaa;
+}
+.chunk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f4f4f4;
+  user-select: none;
+}
+.chunk-row:hover { background: #f8f8f8; }
+.chunk-row.selected { background: #e8f0fe; }
+.cr-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #1e3a5f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cr-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #999;
+}
+.cr-topic {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--navy-light, #e8eef6);
+  color: var(--navy, #1e3a5f);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.cr-score {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--gold-light, #fdf3e0);
+  color: var(--gold, #b8862e);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+.page-info { font-size: 0.72rem; color: #888; }
+
+/* ── Right ── */
+.cb-right {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.cb-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #bbb;
+  font-size: 0.85rem;
+}
+.chunk-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+}
+.detail-title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--navy, #1e3a5f);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.score-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-bottom: 1px solid #eee;
+  background: var(--gold-light, #fdf3e0);
+}
+.score-label { font-size: 0.72rem; color: #888; white-space: nowrap; }
+.score-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #e8e0d8;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%;
+  background: var(--gold, #b8862e);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.score-val { font-size: 0.78rem; font-weight: 600; color: var(--gold, #b8862e); white-space: nowrap; }
+
+.meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #eee;
+}
+.meta-table td { padding: 6px 18px; }
+.meta-table td:first-child { color: #888; width: 110px; font-size: 0.72rem; }
+.meta-table td:last-child { font-family: monospace; word-break: break-all; color: #222; }
+.meta-table tr:nth-child(even) td { background: #fafafa; }
+
+.content-label {
+  padding: 8px 18px 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #aaa;
+  background: #fff;
+}
+.chunk-content {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 12px 18px;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fafafa;
+  color: #333;
+}
+</style>
+
+<script>
+const API = 'http://localhost:4322';
+
+let currentCollection = 'openfs-knowledge';
+let currentOffset = 0;
+const PAGE_SIZE = 50;
+let totalChunks = 0;
+let browseMode: 'browse' | 'search' = 'browse';
+let selectedChunkId: string | null = null;
+let selectedSource: string | null = null;
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function fmtK(n: number) { return n >= 1000 ? `${(n/1000).toFixed(1)}k` : String(n); }
+
+function sourceBasename(s: string) {
+  return s.split('/').pop() ?? s;
+}
+
+// ── Collections ───────────────────────────────────────────────────────────────
+
+async function loadCollections() {
+  const sel = document.getElementById('col-select') as HTMLSelectElement;
+  try {
+    const r = await fetch(`${API}/chroma/collections`);
+    const cols = await r.json() as Array<{ name: string; count: number }>;
+    sel.innerHTML = '';
+    for (const c of cols) {
+      const o = document.createElement('option');
+      o.value = c.name;
+      o.textContent = `${c.name} (${fmtK(c.count)})`;
+      if (c.name === 'openfs-knowledge') o.selected = true;
+      sel.appendChild(o);
+    }
+    currentCollection = sel.value;
+    await loadFilters();
+    await browseChunks();
+  } catch (e) {
+    sel.innerHTML = '<option>Error loading</option>';
+  }
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+
+async function loadFilters() {
+  try {
+    const r = await fetch(`${API}/chroma/sources?collection=${encodeURIComponent(currentCollection)}`);
+    const { sources, topics } = await r.json() as any;
+
+    const topicSel = document.getElementById('filter-topic') as HTMLSelectElement;
+    topicSel.innerHTML = '<option value="">All topics</option>';
+    for (const t of topics) {
+      const o = document.createElement('option'); o.value = t; o.textContent = t;
+      topicSel.appendChild(o);
+    }
+
+    const srcSel = document.getElementById('filter-source') as HTMLSelectElement;
+    srcSel.innerHTML = '<option value="">All sources</option>';
+    for (const s of sources) {
+      const o = document.createElement('option'); o.value = s; o.textContent = sourceBasename(s);
+      o.title = s;
+      srcSel.appendChild(o);
+    }
+  } catch { /* non-fatal */ }
+}
+
+// ── Browse ────────────────────────────────────────────────────────────────────
+
+async function browseChunks(offset = 0) {
+  browseMode = 'browse';
+  currentOffset = offset;
+
+  const topic  = (document.getElementById('filter-topic')  as HTMLSelectElement).value;
+  const source = (document.getElementById('filter-source') as HTMLSelectElement).value;
+
+  const params = new URLSearchParams({
+    collection: currentCollection,
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+  });
+  if (topic)  params.set('topic',  topic);
+  if (source) params.set('source', source);
+
+  const list = document.getElementById('chunk-list')!;
+  list.innerHTML = '<div class="list-empty">Loading…</div>';
+
+  try {
+    const r = await fetch(`${API}/chroma/chunks?${params}`);
+    const data = await r.json() as any;
+    totalChunks = data.total;
+    updateStats(data.total);
+    renderChunkList(data.chunks, false);
+    updatePagination(offset, data.total);
+  } catch (e) {
+    list.innerHTML = `<div class="list-empty" style="color:#c00">Error: ${(e as Error).message}</div>`;
+  }
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+async function searchChunks() {
+  const query = (document.getElementById('search-query') as HTMLInputElement).value.trim();
+  if (!query) return browseChunks();
+  browseMode = 'search';
+
+  const mode  = (document.querySelector('input[name="mode"]:checked') as HTMLInputElement).value;
+  const topK  = parseInt((document.getElementById('topk') as HTMLInputElement).value) || 10;
+  const topic = (document.getElementById('filter-topic') as HTMLSelectElement).value;
+
+  const list = document.getElementById('chunk-list')!;
+  list.innerHTML = '<div class="list-empty">Searching…</div>';
+  document.getElementById('pagination-bar')!.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/chroma/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, collection: currentCollection, mode, topK, topic: topic || undefined }),
+    });
+    const { results } = await r.json() as any;
+    updateStats(results.length, ` results for "${query}"`);
+
+    // Normalize to same shape as browse chunks
+    const chunks = results.map((r: any, i: number) => ({
+      id:    `search-${i}`,
+      source: r.source,
+      title:  r.title,
+      topic:  r.topic ?? '',
+      score:  r.score,
+      charCount: r.content.length,
+      content: r.content,
+      chunkIndex: 0, totalChunks: 1,
+    }));
+    renderChunkList(chunks, true);
+  } catch (e) {
+    list.innerHTML = `<div class="list-empty" style="color:#c00">Error: ${(e as Error).message}</div>`;
+  }
+}
+
+// ── Render list ───────────────────────────────────────────────────────────────
+
+function renderChunkList(chunks: any[], showScore: boolean) {
+  const list = document.getElementById('chunk-list')!;
+  if (!chunks.length) {
+    list.innerHTML = '<div class="list-empty">No chunks found</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const c of chunks) {
+    const row = document.createElement('div');
+    row.className = 'chunk-row' + (c.id === selectedChunkId ? ' selected' : '');
+    row.dataset.id = c.id;
+
+    const scoreBadge = showScore && c.score != null
+      ? `<span class="cr-score">${(c.score * 100).toFixed(0)}%</span>`
+      : '';
+    const topicBadge = c.topic
+      ? `<span class="cr-topic">${c.topic}</span>`
+      : '';
+
+    row.innerHTML = `
+      <div class="cr-title">${c.title || sourceBasename(c.source) || c.id}</div>
+      <div class="cr-meta">
+        <span>${sourceBasename(c.source)}</span>
+        <span>·</span>
+        <span>${c.charCount} ch</span>
+        ${topicBadge}
+        ${scoreBadge}
+      </div>
+    `;
+    row.addEventListener('click', () => selectChunk(c, showScore));
+    list.appendChild(row);
+  }
+}
+
+// ── Select chunk ──────────────────────────────────────────────────────────────
+
+function selectChunk(c: any, showScore: boolean) {
+  selectedChunkId = c.id;
+  selectedSource  = c.source;
+
+  document.querySelectorAll('.chunk-row').forEach(r =>
+    r.classList.toggle('selected', (r as HTMLElement).dataset.id === c.id)
+  );
+
+  document.getElementById('cb-empty')!.style.display = 'none';
+  const detail = document.getElementById('chunk-detail')!;
+  detail.style.display = 'flex';
+
+  document.getElementById('detail-title')!.textContent = c.title || sourceBasename(c.source);
+
+  // Score bar
+  const scoreSection = document.getElementById('score-section')!;
+  if (showScore && c.score != null) {
+    scoreSection.style.display = 'flex';
+    (document.getElementById('score-bar-fill') as HTMLElement).style.width = `${Math.round(c.score * 100)}%`;
+    document.getElementById('score-val')!.textContent = `${(c.score * 100).toFixed(1)}%`;
+  } else {
+    scoreSection.style.display = 'none';
+  }
+
+  // Meta table
+  const mt = document.getElementById('detail-meta')!;
+  mt.innerHTML = [
+    ['Source',  c.source],
+    ['Title',   c.title || '—'],
+    ['Topic',   c.topic || '—'],
+    ['Chunk',   `${c.chunkIndex + 1} / ${c.totalChunks}`],
+    ['Length',  `${c.charCount} chars`],
+    ['ID',      c.id],
+  ].map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+
+  document.getElementById('detail-content')!.textContent = c.content;
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+async function deleteChunk() {
+  if (!selectedChunkId || browseMode === 'search') return;
+  if (!confirm('Delete this chunk from Chroma?')) return;
+  try {
+    await fetch(`${API}/chroma/chunk?collection=${encodeURIComponent(currentCollection)}&id=${encodeURIComponent(selectedChunkId)}`, { method: 'DELETE' });
+    document.getElementById('cb-empty')!.style.display = 'flex';
+    document.getElementById('chunk-detail')!.style.display = 'none';
+    selectedChunkId = null;
+    await browseChunks(currentOffset);
+  } catch (e) {
+    alert(`Delete failed: ${(e as Error).message}`);
+  }
+}
+
+async function deleteSource() {
+  if (!selectedSource) return;
+  if (!confirm(`Delete ALL chunks from source:\n${selectedSource}?`)) return;
+  try {
+    await fetch(`${API}/chroma/source?collection=${encodeURIComponent(currentCollection)}&source=${encodeURIComponent(selectedSource)}`, { method: 'DELETE' });
+    document.getElementById('cb-empty')!.style.display = 'flex';
+    document.getElementById('chunk-detail')!.style.display = 'none';
+    selectedChunkId = null;
+    selectedSource  = null;
+    await loadFilters();
+    await browseChunks(0);
+  } catch (e) {
+    alert(`Delete failed: ${(e as Error).message}`);
+  }
+}
+
+// ── Pagination ────────────────────────────────────────────────────────────────
+
+function updateStats(n: number, suffix = '') {
+  document.getElementById('cb-stats')!.textContent = `${fmtK(n)} chunks${suffix}`;
+}
+
+function updatePagination(offset: number, total: number) {
+  const bar = document.getElementById('pagination-bar')!;
+  if (total <= PAGE_SIZE) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const from = offset + 1, to = Math.min(offset + PAGE_SIZE, total);
+  document.getElementById('page-info')!.textContent = `${from}–${to} of ${fmtK(total)}`;
+  (document.getElementById('btn-prev') as HTMLButtonElement).disabled = offset === 0;
+  (document.getElementById('btn-next') as HTMLButtonElement).disabled = to >= total;
+}
+
+// ── Wire up events ────────────────────────────────────────────────────────────
+
+document.getElementById('col-select')!.addEventListener('change', async (e) => {
+  currentCollection = (e.target as HTMLSelectElement).value;
+  currentOffset = 0;
+  await loadFilters();
+  await browseChunks();
+});
+
+document.getElementById('btn-refresh')!.addEventListener('click', async () => {
+  await loadCollections();
+});
+
+document.getElementById('filter-topic')!.addEventListener('change', () => browseChunks(0));
+document.getElementById('filter-source')!.addEventListener('change', () => browseChunks(0));
+
+document.getElementById('btn-search')!.addEventListener('click', searchChunks);
+document.getElementById('search-query')!.addEventListener('keydown', (e) => {
+  if ((e as KeyboardEvent).key === 'Enter') searchChunks();
+});
+document.getElementById('btn-browse')!.addEventListener('click', () => {
+  (document.getElementById('search-query') as HTMLInputElement).value = '';
+  browseChunks(0);
+});
+
+document.getElementById('btn-prev')!.addEventListener('click', () => browseChunks(Math.max(0, currentOffset - PAGE_SIZE)));
+document.getElementById('btn-next')!.addEventListener('click', () => browseChunks(currentOffset + PAGE_SIZE));
+
+document.getElementById('btn-delete-chunk')!.addEventListener('click', deleteChunk);
+document.getElementById('btn-delete-source')!.addEventListener('click', deleteSource);
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadCollections();
+</script>
+
+</AppShell>

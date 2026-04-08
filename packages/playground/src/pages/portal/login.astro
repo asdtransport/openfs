@@ -1,0 +1,234 @@
+---
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign In — OpenFS Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1e3a5f; --navy-dark: #152c4a; --navy-mid: #2a4a72;
+      --gold: #b8862e; --gold-hover: #9a6f20;
+      --bg: #f0ece5; --surface: #ffffff; --border: #e4ddd4; --border2: #cdc5bb;
+      --text: #1a1a1a; --text2: #383838; --muted: #7a7570;
+      --red: #b91c1c; --red-light: #fee2e2;
+      --font: 'Inter', -apple-system, sans-serif;
+    }
+    html, body { height: 100%; font-family: var(--font); background: var(--navy-dark); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background: var(--navy-dark);
+      background-image: radial-gradient(ellipse at 60% 20%, rgba(184,134,46,0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 20% 80%, rgba(30,58,95,0.6) 0%, transparent 50%);
+    }
+
+    .login-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 2.5rem 2.25rem;
+      width: 100%;
+      max-width: 380px;
+      backdrop-filter: blur(8px);
+    }
+
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      color: white;
+    }
+    .login-logo-text {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .login-logo-badge {
+      font-size: 0.58rem;
+      font-weight: 600;
+      background: var(--gold);
+      color: white;
+      padding: 0.12rem 0.4rem;
+      border-radius: 3px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .login-subtitle {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 2rem;
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 0.35rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 7px;
+      color: white;
+      font-size: 0.85rem;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    input::placeholder { color: rgba(255,255,255,0.2); }
+    input:focus { border-color: var(--gold); background: rgba(255,255,255,0.08); }
+
+    .btn-sign-in {
+      width: 100%;
+      padding: 0.65rem;
+      background: var(--gold);
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font);
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.12s;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn-sign-in:hover { background: var(--gold-hover); }
+    .btn-sign-in:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .error-msg {
+      background: rgba(185,28,28,0.15);
+      border: 1px solid rgba(185,28,28,0.3);
+      border-radius: 6px;
+      padding: 0.6rem 0.85rem;
+      color: #fca5a5;
+      font-size: 0.78rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .login-footer {
+      margin-top: 2rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      text-align: center;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.2);
+    }
+
+    .spinner {
+      display: none;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+        <span class="login-logo-text">OpenFS</span>
+        <span class="login-logo-badge">Portal</span>
+      </div>
+      <div class="login-subtitle">Sign in to access your knowledge base</div>
+
+      <div class="error-msg" id="error-msg"></div>
+
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input id="username" type="text" placeholder="your.username" autocomplete="username" required autofocus />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+        <button class="btn-sign-in" type="submit" id="sign-in-btn">
+          <span class="spinner" id="spinner"></span>
+          <span id="btn-label">Sign In</span>
+        </button>
+      </form>
+
+      <div class="login-footer">Powered by OpenFS &mdash; Enterprise Knowledge Platform</div>
+    </div>
+  </div>
+
+  <script is:inline>
+    const API = 'http://localhost:4322';
+
+    // Redirect if already logged in
+    (async () => {
+      const token = localStorage.getItem('openfs_token');
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) window.location.href = '/portal/chat';
+      } catch {}
+    })();
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('sign-in-btn');
+      const spinner = document.getElementById('spinner');
+      const label = document.getElementById('btn-label');
+      const errDiv = document.getElementById('error-msg');
+
+      btn.disabled = true;
+      spinner.style.display = 'block';
+      label.textContent = 'Signing in…';
+      errDiv.style.display = 'none';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errDiv.textContent = data.error || 'Login failed';
+          errDiv.style.display = 'block';
+          return;
+        }
+        localStorage.setItem('openfs_token', data.token);
+        localStorage.setItem('openfs_user', JSON.stringify(data.user));
+        window.location.href = '/portal/chat';
+      } catch (err) {
+        errDiv.textContent = 'Cannot reach server — is it running?';
+        errDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        label.textContent = 'Sign In';
+      }
+    }
+  </script>
+</body>
+</html>

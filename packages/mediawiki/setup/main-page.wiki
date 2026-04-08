@@ -1,0 +1,55 @@
+<div id="derek-hero">'''Welcome to Derek Davis'''<br/><span class="hero-sub">the personal knowledge base compiled from diary entries and research.</span><br/><span class="hero-stats">[[Special:AllPages|Browse all articles]] · [[Special:Categories|All categories]] · [[Special:RecentChanges|Recent changes]]</span></div>
+
+{| class="derek-main-layout"
+|-
+| class="derek-col-left" |
+
+{| class="derek-panel"
+|-
+! class="derek-panel-header" | Featured article
+|-
+| class="derek-panel-body" |
+''Set a featured article — edit [[Main_Page]], paste a short excerpt from any article and add a link.''
+|}
+
+{| class="derek-panel"
+|-
+! class="derek-panel-header" | Browse by category
+|-
+| class="derek-panel-body" |
+; Artifacts
+* [[:Category:Artifacts|Browse artifacts]]
+; Assessments
+* [[:Category:Assessments|Browse assessments]]
+; Audiences
+* [[:Category:Audiences|Browse audiences]]
+; Books
+* [[:Category:Books|Browse books]]
+; People
+* [[:Category:People|Browse people]]
+; Health & Life
+* [[:Category:Health|Browse health & life]]
+|}
+
+| class="derek-col-right" |
+
+{| class="derek-panel"
+|-
+! class="derek-panel-header" | Recently updated
+|-
+| class="derek-panel-body" |
+[[Special:RecentChanges|View all recent changes →]]
+|}
+
+{| class="derek-panel"
+|-
+! class="derek-panel-header" | About
+|-
+| class="derek-panel-body" |
+Derek Davis is a personal knowledge wiki compiled from diary entries and research. Articles represent synthesized knowledge and patterns — not events.
+|}
+
+|}
+
+__NOTOC__
+__NOEDITSECTION__

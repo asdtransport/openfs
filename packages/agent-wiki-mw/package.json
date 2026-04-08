@@ -1,0 +1,29 @@
+{
+  "name": "@openfs/agent-wiki-mw",
+  "version": "0.1.0",
+  "description": "OpenFS agent that reads/writes a real MediaWiki instance — pairs with @openfs/agent-wiki for LLM-powered wiki synthesis.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "cli": "bun run src/cli.ts",
+    "login": "bun run src/cli.ts login",
+    "pull": "bun run src/cli.ts pull --all",
+    "push": "bun run src/cli.ts push --all",
+    "server": "bun run src/server.ts",
+    "dev": "bun run --hot src/server.ts"
+  },
+  "dependencies": {
+    "@openfs/adapter-sqlite": "workspace:*",
+    "@openfs/agent-wiki": "workspace:*",
+    "@openfs/wasm": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "MIT"
+}

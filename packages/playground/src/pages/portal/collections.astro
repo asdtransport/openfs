@@ -1,0 +1,433 @@
+---
+import PortalShell from '../../components/PortalShell.astro';
+---
+<PortalShell title="Collections" active="collections">
+
+<style is:global>
+  .col-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .col-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+    overflow: hidden;
+  }
+  .col-card:hover { border-color: var(--navy); box-shadow: 0 2px 8px rgba(30,58,95,0.08); }
+  .col-card.active { border-color: var(--gold); box-shadow: 0 2px 12px rgba(184,134,46,0.12); }
+  .col-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--navy);
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .col-card.active::before { background: var(--gold); opacity: 1; }
+  .col-card:hover::before { opacity: 0.4; }
+  .col-name { font-size: 0.92rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+  .col-count { font-size: 1.8rem; font-weight: 700; color: var(--navy); letter-spacing: -0.04em; line-height: 1.1; }
+  .col-lbl { font-size: 0.7rem; color: var(--muted); font-weight: 500; }
+  .col-topics { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.75rem; }
+
+  /* Detail panel */
+  .detail-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+  }
+  .detail-head {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .detail-title { font-size: 1rem; font-weight: 700; }
+
+  /* Search bar */
+  .search-bar {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .search-bar input { flex: 1; font-size: 0.82rem; }
+  .search-bar select { font-size: 0.78rem; }
+
+  /* Chunk list */
+  .chunk-list { overflow-y: auto; max-height: 520px; }
+  .chunk-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.7rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .chunk-row:last-child { border-bottom: none; }
+  .chunk-row:hover { background: var(--surface2); }
+  .chunk-row.is-meta { opacity: 0.55; }
+  .chunk-idx {
+    width: 22px; height: 22px;
+    background: var(--navy-light); color: var(--navy);
+    border-radius: 4px;
+    font-size: 0.6rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 0.15rem;
+  }
+  .chunk-row.is-meta .chunk-idx { background: var(--surface2); color: var(--muted); }
+  .chunk-body { flex: 1; min-width: 0; }
+  .chunk-src { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.15rem; }
+  .chunk-excerpt { font-size: 0.8rem; color: var(--text2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
+  .chunk-row.is-meta .chunk-excerpt { font-style: italic; color: var(--muted); font-size: 0.74rem; }
+  .chunk-score { font-size: 0.65rem; font-weight: 600; color: var(--gold); margin-top: 0.2rem; }
+  .chunk-meta-tag { font-size: 0.58rem; font-weight: 600; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 0.05rem 0.3rem; flex-shrink: 0; margin-top: 0.15rem; align-self: flex-start; }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  /* Chunk detail modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    max-width: 660px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .modal-head { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; }
+  .modal-title { font-size: 0.9rem; font-weight: 600; flex: 1; }
+  .modal-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .modal-body { padding: 1.25rem; overflow-y: auto; font-size: 0.82rem; line-height: 1.65; color: var(--text2); white-space: pre-wrap; font-family: var(--mono); flex: 1; }
+  .modal-close { background: none; border: none; cursor: pointer; color: var(--muted); }
+  .modal-close:hover { color: var(--text); }
+  .modal-foot { padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; justify-content: flex-end; }
+</style>
+
+<div class="page-header" style="display:flex;align-items:baseline;gap:1rem;margin-bottom:1.25rem">
+  <div>
+    <div class="page-title">Collections</div>
+    <div class="page-sub">Browse and search your Chroma vector collections</div>
+  </div>
+  <button class="btn btn-outline btn-sm" onclick="loadAll()" style="margin-left:auto">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+    Refresh
+  </button>
+</div>
+
+<!-- Collection cards grid -->
+<div class="col-grid" id="col-grid">
+  <div class="empty"><span class="spinner"></span></div>
+</div>
+
+<!-- Collection detail panel -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-head">
+    <div>
+      <div class="detail-title" id="detail-name">Collection</div>
+      <div style="font-size:0.72rem;color:var(--muted)" id="detail-meta"></div>
+    </div>
+    <div class="card-head-right">
+      <button class="btn btn-outline btn-sm" onclick="closeDetail()">Close</button>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <input id="search-input" placeholder="Search within this collection…" onkeydown="if(event.key==='Enter')runSearch()" />
+    <select id="search-topic">
+      <option value="">All topics</option>
+    </select>
+    <select id="search-mode">
+      <option value="semantic">Semantic</option>
+      <option value="text">Keyword</option>
+    </select>
+    <button class="btn btn-navy btn-sm" onclick="runSearch()">Search</button>
+    <button class="btn btn-outline btn-sm" onclick="browse()">Browse All</button>
+    <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;color:var(--muted);white-space:nowrap;cursor:pointer;flex-shrink:0">
+      <input type="checkbox" id="hide-meta" checked onchange="rerenderChunks()" style="width:auto;padding:0;border:none;accent-color:var(--navy)">
+      Hide metadata
+    </label>
+  </div>
+
+  <div class="chunk-list" id="chunk-list">
+    <div class="empty">Select a search mode and click Search, or Browse All</div>
+  </div>
+
+  <div class="pagination" id="pagination" style="display:none">
+    <button class="btn btn-outline btn-sm" id="prev-btn" onclick="changePage(-1)">Prev</button>
+    <span id="page-info"></span>
+    <button class="btn btn-outline btn-sm" id="next-btn" onclick="changePage(1)">Next</button>
+    <span style="margin-left:auto" id="total-info"></span>
+  </div>
+</div>
+
+<!-- Chunk detail modal -->
+<div class="modal-backdrop" id="chunk-modal" style="display:none" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modal-title">Chunk</div>
+      <button class="modal-close" onclick="document.getElementById('chunk-modal').style.display='none'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-sm btn-danger" id="modal-delete-btn">Delete Chunk</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('chunk-modal').style.display='none'">Close</button>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  // API declared globally by PortalShell
+  let collections = [];
+  let activeCol = null;
+  let currentChunks = [];
+  let currentOffset = 0;
+  const PAGE_SIZE = 25;
+  let totalChunks = 0;
+  let isSearchMode = false;
+
+  function token() { return localStorage.getItem('openfs_token') || ''; }
+  function authHdr() { return { Authorization: `Bearer ${token()}` }; }
+
+  async function loadAll() {
+    document.getElementById('col-grid').innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    try {
+      const res = await fetch(`${API}/chroma/collections`, { headers: authHdr() });
+      collections = await res.json();
+      renderGrid();
+    } catch (e) {
+      document.getElementById('col-grid').innerHTML = `<div class="empty" style="color:var(--red)">${e.message}</div>`;
+    }
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById('col-grid');
+    if (!collections.length) {
+      grid.innerHTML = '<div class="empty">No collections found</div>';
+      return;
+    }
+    grid.innerHTML = collections.map(c => `
+      <div class="col-card ${activeCol === c.name ? 'active' : ''}" onclick="openCollection('${c.name}')">
+        <div class="col-name">${escHtml(c.name)}</div>
+        <div class="col-count">${c.count.toLocaleString()}</div>
+        <div class="col-lbl">chunks</div>
+      </div>
+    `).join('');
+  }
+
+  async function openCollection(name) {
+    activeCol = name;
+    renderGrid();
+    document.getElementById('detail-name').textContent = name;
+    document.getElementById('detail-meta').textContent = 'Loading…';
+    document.getElementById('detail-panel').style.display = 'block';
+    document.getElementById('chunk-list').innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    document.getElementById('pagination').style.display = 'none';
+    document.getElementById('detail-panel').scrollIntoView({ behavior: 'smooth' });
+
+    // Load topics
+    try {
+      const res = await fetch(`${API}/chroma/topics?collection=${encodeURIComponent(name)}`, { headers: authHdr() });
+      const data = await res.json();
+      const sel = document.getElementById('search-topic');
+      sel.innerHTML = '<option value="">All topics</option>' + (data.topics || []).map(t => `<option>${escHtml(t)}</option>`).join('');
+    } catch {}
+
+    const col = collections.find(c => c.name === name);
+    document.getElementById('detail-meta').textContent = `${col?.count?.toLocaleString() ?? '?'} chunks`;
+
+    await browse();
+  }
+
+  async function browse(offset = 0) {
+    isSearchMode = false;
+    currentOffset = offset;
+    const topic = document.getElementById('search-topic').value;
+    document.getElementById('chunk-list').innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+
+    try {
+      const params = new URLSearchParams({ collection: activeCol, limit: PAGE_SIZE, offset });
+      if (topic) params.set('topic', topic);
+      const res = await fetch(`${API}/chroma/chunks?${params}`, { headers: authHdr() });
+      const data = await res.json();
+      currentChunks = data.chunks || [];
+      totalChunks = data.total || 0;
+      renderChunks();
+      renderPagination();
+    } catch (e) {
+      document.getElementById('chunk-list').innerHTML = `<div class="empty" style="color:var(--red)">${e.message}</div>`;
+    }
+  }
+
+  async function runSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) { browse(); return; }
+    isSearchMode = true;
+    const mode = document.getElementById('search-mode').value;
+    const topic = document.getElementById('search-topic').value;
+    document.getElementById('chunk-list').innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    document.getElementById('pagination').style.display = 'none';
+
+    try {
+      const res = await fetch(`${API}/chroma/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHdr() },
+        body: JSON.stringify({ collection: activeCol, query: q, topK: 20, mode, topic: topic || undefined }),
+      });
+      const data = await res.json();
+      currentChunks = (data.results || []).map(r => ({ content: r.content, source: r.source, title: r.title, topic: r.topic, score: r.score }));
+      totalChunks = currentChunks.length;
+      renderChunks();
+    } catch (e) {
+      document.getElementById('chunk-list').innerHTML = `<div class="empty" style="color:var(--red)">${e.message}</div>`;
+    }
+  }
+
+  function isMetaChunk(content) {
+    const s = (content || '').trim();
+    if (s.startsWith('{') || s.startsWith('[')) {
+      try { JSON.parse(s); return true; } catch {}
+    }
+    return false;
+  }
+
+  function cleanContent(raw) {
+    return (raw || '').replace(/#+\s/g,'').replace(/\*\*/g,'').replace(/`/g,'').replace(/={2,}[^=]+=+/g,'').replace(/\n+/g,' ').trim();
+  }
+
+  function shortSource(src) {
+    if (!src) return '';
+    return src.replace(/\.meta\.json$/i,'').split('/').slice(-2).join('/');
+  }
+
+  function rerenderChunks() { renderChunks(); }
+
+  function renderChunks() {
+    const list = document.getElementById('chunk-list');
+    const hideMeta = document.getElementById('hide-meta')?.checked ?? true;
+
+    let visible = currentChunks;
+    if (hideMeta) visible = currentChunks.filter(c => !isMetaChunk(c.content));
+
+    if (!visible.length) {
+      list.innerHTML = `<div class="empty">${hideMeta && currentChunks.length ? 'All results are metadata chunks — uncheck "Hide metadata" to show them' : 'No chunks found'}</div>`;
+      return;
+    }
+
+    list.innerHTML = visible.map((c, i) => {
+      const meta = isMetaChunk(c.content);
+      const excerpt = meta ? '(metadata document)' : cleanContent(c.content);
+      const src = shortSource(c.source);
+      const score = c.score != null && c.score < 1 ? `<div class="chunk-score">${(c.score * 100).toFixed(1)}% match</div>` : '';
+      const metaTag = meta ? `<span class="chunk-meta-tag">meta</span>` : '';
+      return `
+      <div class="chunk-row${meta ? ' is-meta' : ''}" onclick="openChunk(${currentChunks.indexOf(c)})">
+        <div class="chunk-idx">${i + 1}</div>
+        <div class="chunk-body">
+          <div class="chunk-src">${escHtml(src)}</div>
+          <div class="chunk-excerpt">${escHtml(excerpt.slice(0, 220))}</div>
+          ${score}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
+          ${c.topic ? `<span class="tag tag-navy">${escHtml(c.topic)}</span>` : ''}
+          ${metaTag}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderPagination() {
+    const pag = document.getElementById('pagination');
+    if (isSearchMode || totalChunks <= PAGE_SIZE) { pag.style.display = 'none'; return; }
+    pag.style.display = 'flex';
+    const page = Math.floor(currentOffset / PAGE_SIZE) + 1;
+    const totalPages = Math.ceil(totalChunks / PAGE_SIZE);
+    document.getElementById('page-info').textContent = `Page ${page} of ${totalPages}`;
+    document.getElementById('total-info').textContent = `${totalChunks.toLocaleString()} chunks total`;
+    document.getElementById('prev-btn').disabled = currentOffset === 0;
+    document.getElementById('next-btn').disabled = currentOffset + PAGE_SIZE >= totalChunks;
+  }
+
+  function changePage(dir) {
+    browse(Math.max(0, currentOffset + dir * PAGE_SIZE));
+  }
+
+  function openChunk(i) {
+    const c = currentChunks[i];
+    if (!c) return;
+    document.getElementById('modal-title').textContent = c.title || c.source?.split('/').pop() || 'Chunk';
+    document.getElementById('modal-body').textContent = c.content || '';
+    document.getElementById('modal-meta').innerHTML = [
+      c.source ? `<span class="tag tag-gray">Source: ${escHtml(c.source)}</span>` : '',
+      c.topic  ? `<span class="tag tag-navy">${escHtml(c.topic)}</span>` : '',
+      c.score != null && c.score < 1 ? `<span class="tag tag-gold">${(c.score * 100).toFixed(1)}% match</span>` : '',
+    ].filter(Boolean).join('');
+
+    const delBtn = document.getElementById('modal-delete-btn');
+    if (c.id) {
+      delBtn.style.display = 'inline-flex';
+      delBtn.onclick = async () => {
+        if (!confirm('Delete this chunk?')) return;
+        await fetch(`${API}/chroma/chunk?collection=${encodeURIComponent(activeCol)}&id=${encodeURIComponent(c.id)}`, { method: 'DELETE', headers: authHdr() });
+        document.getElementById('chunk-modal').style.display = 'none';
+        await browse(currentOffset);
+      };
+    } else {
+      delBtn.style.display = 'none';
+    }
+
+    document.getElementById('chunk-modal').style.display = 'flex';
+  }
+
+  function closeModal(e) { if (e.target.id === 'chunk-modal') document.getElementById('chunk-modal').style.display = 'none'; }
+  function closeDetail() {
+    activeCol = null;
+    renderGrid();
+    document.getElementById('detail-panel').style.display = 'none';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadAll();
+</script>
+
+</PortalShell>

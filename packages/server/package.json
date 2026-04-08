@@ -1,0 +1,23 @@
+{
+  "name": "@openfs/server",
+  "version": "0.1.0",
+  "description": "Hono API server for remote OpenFS filesystem access",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "just-bash": "^2.14.0",
+    "@openfs/core": "workspace:*",
+    "@openfs/adapter-sqlite": "workspace:*",
+    "@openfs/adapter-chroma": "workspace:*",
+    "@openfs/adapter-s3": "workspace:*",
+    "@openfs/grep-optimizer": "workspace:*"
+  },
+  "license": "Apache-2.0"
+}

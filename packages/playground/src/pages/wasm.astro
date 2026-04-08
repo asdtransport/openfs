@@ -1,0 +1,1347 @@
+---
+// OpenFS WASM — fully in-browser, zero server required
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenFS WASM — Browser Sandbox</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e0e0e8;
+      --muted: #6b6b80;
+      --accent: #7c5cfc;
+      --accent-dim: #5a3fd6;
+      --green: #4ade80;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --cyan: #22d3ee;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--accent-dim);
+      color: white;
+      font-weight: 500;
+    }
+
+    .badge.green { background: #14532d; color: var(--green); }
+    .badge.orange { background: #7c2d12; color: #fb923c; }
+
+    nav-link {
+      display: inline-block;
+      margin-left: auto;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    nav-link:hover { color: var(--text); }
+
+    /* ── Upload panel ─────────────────────────────────────── */
+    .upload-panel {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .upload-zone {
+      flex: 1;
+      min-width: 260px;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124, 92, 252, 0.06);
+    }
+
+    .upload-zone input[type="file"] {
+      display: none;
+    }
+
+    .upload-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .upload-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .upload-label strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+
+    .stats-strip {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .stats-strip span { white-space: nowrap; }
+    .stats-strip .val { color: var(--green); font-weight: 600; }
+
+    .btn {
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+    /* ── Terminal ────────────────────────────────────────── */
+    .terminal-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 1rem 1.5rem;
+      gap: 0.75rem;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .terminal-box {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-y: auto;
+      padding: 1rem;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      min-height: 300px;
+      max-height: 55vh;
+    }
+
+    .line { white-space: pre-wrap; word-break: break-word; }
+    .line.prompt { color: var(--accent); }
+    .line.stdout { color: var(--text); }
+    .line.stderr { color: var(--red); }
+    .line.info  { color: var(--cyan); }
+    .line.dim   { color: var(--muted); }
+    .line.success { color: var(--green); }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .prompt-prefix {
+      color: var(--accent);
+      font-family: monospace;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    #cmd-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+
+    #status-bar {
+      font-size: 0.72rem;
+      color: var(--muted);
+      padding: 0.4rem 0;
+      display: flex;
+      gap: 1rem;
+    }
+
+    #status-bar .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    #status-bar .dot.green { background: var(--green); }
+    #status-bar .dot.orange { background: var(--yellow); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      <span>OpenFS</span>
+      <span class="badge" id="runtime-badge">WASM</span>
+      <span class="badge green" id="mode-badge">browser</span>
+    </h1>
+    <span style="color:var(--muted);font-size:0.82rem" id="header-desc">Sandboxed filesystem — runs entirely in your browser. No server, no uploads.</span>
+
+    <!-- Mode toggle -->
+    <div style="display:flex;align-items:center;gap:0.35rem;margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.2rem">
+      <button id="btn-mode-wasm" onclick="setMode('wasm')"
+        style="padding:0.3rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;background:var(--accent);color:white;transition:all 0.15s">
+        WASM
+      </button>
+      <button id="btn-mode-server" onclick="setMode('server')"
+        style="padding:0.3rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:500;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.15s">
+        Server
+      </button>
+    </div>
+
+    <a href="/wiki" style="color:var(--muted);font-size:0.82rem;text-decoration:none">Wiki →</a>
+  </header>
+
+  <!-- Upload Panel -->
+  <div class="upload-panel">
+    <div class="upload-zone" id="drop-zone" title="Click to select files/folder">
+      <input type="file" id="file-input" multiple />
+      <input type="file" id="folder-input" webkitdirectory multiple />
+      <span class="upload-icon">📁</span>
+      <div class="upload-label">
+        <strong>Upload files or a folder</strong>
+        Drag &amp; drop, or click to browse
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <button class="btn btn-ghost" id="btn-files" title="Pick individual files">+ Files</button>
+      <button class="btn btn-ghost" id="btn-folder" title="Pick an entire folder">+ Folder</button>
+      <button class="btn btn-primary" id="btn-load-demo">Load demo</button>
+      <button class="btn btn-ghost" id="btn-s3-config" title="Configure S3 connection">S3 connect</button>
+    </div>
+
+    <!-- S3 config panel (hidden by default) -->
+    <div id="s3-panel" style="display:none;flex-direction:column;gap:0.5rem;min-width:280px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem;font-size:0.82rem;">
+      <strong style="color:var(--text)">S3 / MinIO Connection</strong>
+      <input id="s3-endpoint" placeholder="http://localhost:3456/api/s3" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0.35rem 0.5rem;color:var(--text);font-size:0.8rem;width:100%" />
+      <input id="s3-bucket" placeholder="bucket name" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0.35rem 0.5rem;color:var(--text);font-size:0.8rem;width:100%" />
+      <input id="s3-token" placeholder="Bearer token (optional)" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0.35rem 0.5rem;color:var(--text);font-size:0.8rem;width:100%" />
+      <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-primary" id="btn-s3-save" style="flex:1">Connect</button>
+        <button class="btn btn-ghost" id="btn-s3-discover" title="Auto-discover from OpenFS server">Auto</button>
+        <button class="btn btn-ghost" id="btn-s3-cancel">✕</button>
+      </div>
+      <span id="s3-status" style="color:var(--muted);font-size:0.75rem"></span>
+    </div>
+
+    <div class="stats-strip" id="stats-strip">
+      <span>Files: <span class="val" id="stat-files">0</span></span>
+      <span>Size: <span class="val" id="stat-size">0 B</span></span>
+      <span>Status: <span class="val" id="stat-status" style="color:var(--yellow)">booting…</span></span>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="terminal-wrap">
+    <div class="terminal-header">
+      <span id="shell-label">openfs:wasm shell</span>
+      <div style="display:flex;gap:0.75rem;align-items:center;margin-left:auto">
+        <span style="font-size:0.7rem;padding:0.1rem 0.45rem;border-radius:4px;background:rgba(124,92,252,0.15);color:var(--accent)" id="engine-label">sql.js · in-memory</span>
+        <span id="status-bar">
+          <span class="dot" id="dot"></span>
+          <span id="status-text">initializing</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Quick-access presets (context-sensitive) -->
+    <div id="preset-bar" style="display:flex;gap:0.4rem;flex-wrap:wrap">
+      <!-- WASM presets -->
+      <span class="preset-group" id="presets-wasm" style="display:flex;gap:0.4rem;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('ls /')">ls /</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('grep access_token /docs')">grep access_token /docs</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('search auth')">search auth</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('s3 buckets')">s3 buckets</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('stats')">stats</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('help')">help</button>
+      </span>
+      <!-- Server presets -->
+      <span class="preset-group" id="presets-server" style="display:none;gap:0.4rem;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('ls /wiki')">ls /wiki</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('pages')">pages</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('search openfs')">search openfs</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('ask how does the sync pipeline work?')">ask: sync pipeline</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('lint')">lint</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('log')">log</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('status')">status</button>
+        <button class="btn btn-ghost" style="font-size:0.73rem;padding:0.2rem 0.6rem" onclick="runPreset('help')">help</button>
+      </span>
+    </div>
+
+    <div class="terminal-box" id="terminal"></div>
+
+    <div class="input-row">
+      <span class="prompt-prefix" id="prompt-prefix">openfs&gt;</span>
+      <input id="cmd-input" type="text" placeholder="ls /  · cat /file.md  · grep -r token /" autocomplete="off" spellcheck="false" disabled />
+    </div>
+  </div>
+
+  <script is:inline src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.js"></script>
+  <script>
+    import { createAgentFs } from "@openfs/wasm";
+
+    // ── Terminal helpers ────────────────────────────────────────────────────────
+    const box = document.getElementById("terminal");
+
+    function println(text, cls = "stdout") {
+      if (!text) return;
+      text.trimEnd().split("\n").forEach(line => {
+        const el = document.createElement("div");
+        el.className = "line " + cls;
+        el.textContent = line;
+        box.appendChild(el);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function printPrompt(cmd) {
+      const el = document.createElement("div");
+      el.className = "line prompt";
+      el.textContent = "openfs> " + cmd;
+      box.appendChild(el);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // ── Status helpers ──────────────────────────────────────────────────────────
+    const dot      = document.getElementById("dot");
+    const statusTx = document.getElementById("status-text");
+    const statStatus = document.getElementById("stat-status");
+
+    function setStatus(state, msg) {
+      dot.className = "dot " + state;
+      statusTx.textContent = msg;
+      statStatus.textContent = msg;
+      statStatus.style.color = state === "green" ? "var(--green)" : "var(--yellow)";
+    }
+
+    // ── Stats strip ─────────────────────────────────────────────────────────────
+    function updateStats() {
+      if (!fs) return;
+      const s = fs.stats();
+      document.getElementById("stat-files").textContent = s.fileCount;
+      document.getElementById("stat-size").textContent = fmtSize(s.totalSize);
+    }
+
+    function fmtSize(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    // ── GitHub token (optional — raises rate limit from 60→5000 req/hr) ─────────
+    let githubToken = "";
+
+    // ── S3 config ───────────────────────────────────────────────────────────────
+    let s3Config = {
+      endpoint: "/api/s3",
+      bucket: "openfs-playground",
+      token: "demo-token",
+    };
+
+    document.getElementById("btn-s3-config").addEventListener("click", () => {
+      const panel = document.getElementById("s3-panel");
+      const visible = panel.style.display !== "none";
+      panel.style.display = visible ? "none" : "flex";
+      if (!visible) {
+        document.getElementById("s3-endpoint").value = s3Config.endpoint;
+        document.getElementById("s3-bucket").value = s3Config.bucket;
+        document.getElementById("s3-token").value = s3Config.token;
+      }
+    });
+
+    document.getElementById("btn-s3-cancel").addEventListener("click", () => {
+      document.getElementById("s3-panel").style.display = "none";
+    });
+
+    document.getElementById("btn-s3-discover").addEventListener("click", async () => {
+      const status = document.getElementById("s3-status");
+      status.textContent = "discovering…";
+      status.style.color = "var(--muted)";
+      try {
+        const r = await fetch("/api/s3/config", { headers: { "Authorization": "Bearer demo-token" } });
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        const cfg = await r.json();
+        document.getElementById("s3-endpoint").value = cfg.endpoint;
+        document.getElementById("s3-bucket").value = cfg.bucket;
+        document.getElementById("s3-token").value = cfg.token;
+        status.textContent = `✓ discovered — ${cfg.description} (${cfg.status})`;
+        status.style.color = cfg.status === "ready" ? "var(--green)" : "var(--yellow)";
+      } catch (e) {
+        status.textContent = "✗ server not reachable: " + e.message;
+        status.style.color = "var(--red)";
+      }
+    });
+
+    document.getElementById("btn-s3-save").addEventListener("click", async () => {
+      const endpoint = document.getElementById("s3-endpoint").value.trim().replace(/\/$/, "");
+      const bucket   = document.getElementById("s3-bucket").value.trim();
+      const token    = document.getElementById("s3-token").value.trim();
+      const status   = document.getElementById("s3-status");
+      if (!endpoint || !bucket) { status.textContent = "endpoint and bucket required"; return; }
+      status.textContent = "testing…";
+      try {
+        const r = await fetch(`${endpoint}/buckets`, {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        s3Config = { endpoint, bucket, token };
+        status.textContent = "✓ connected";
+        status.style.color = "var(--green)";
+      } catch (e) {
+        status.textContent = "✗ " + e.message;
+        status.style.color = "var(--red)";
+      }
+    });
+
+    // ── Mode: wasm | server ──────────────────────────────────────────────────────
+    const SERVER_API = location.protocol === 'https:'
+      ? 'https://api.openfs.derekethandavis.com'
+      : 'http://localhost:4322';
+
+    let mode = 'wasm'; // 'wasm' | 'server'
+
+    function setMode(m) {
+      mode = m;
+      const isServer = m === 'server';
+
+      // Toggle button styles
+      document.getElementById('btn-mode-wasm').style.cssText =
+        `padding:0.3rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:${isServer?500:600};cursor:pointer;background:${isServer?'transparent':'var(--accent)'};color:${isServer?'var(--muted)':'white'};transition:all 0.15s`;
+      document.getElementById('btn-mode-server').style.cssText =
+        `padding:0.3rem 0.8rem;border-radius:6px;border:none;font-size:0.78rem;font-weight:${isServer?600:500};cursor:pointer;background:${isServer?'var(--accent)':'transparent'};color:${isServer?'white':'var(--muted)'};transition:all 0.15s`;
+
+      // Update labels
+      document.getElementById('runtime-badge').textContent = isServer ? 'SERVER' : 'WASM';
+      document.getElementById('runtime-badge').style.background = isServer ? '#14532d' : '';
+      document.getElementById('mode-badge').textContent = isServer ? 'bun:sqlite' : 'browser';
+      document.getElementById('shell-label').textContent = isServer ? 'openfs:server shell' : 'openfs:wasm shell';
+      document.getElementById('engine-label').textContent = isServer ? `bun:sqlite · ${SERVER_API}` : 'sql.js · in-memory';
+      document.getElementById('engine-label').style.color = isServer ? 'var(--green)' : 'var(--accent)';
+      document.getElementById('prompt-prefix').textContent = isServer ? 'server>' : 'openfs>';
+      document.getElementById('presets-wasm').style.display = isServer ? 'none' : 'flex';
+      document.getElementById('presets-server').style.display = isServer ? 'flex' : 'none';
+      document.getElementById('cmd-input').placeholder = isServer
+        ? 'ls /wiki  · ask <question>  · search <query>  · lint'
+        : 'ls /  · cat /file.md  · grep -r token /';
+      document.getElementById('header-desc').textContent = isServer
+        ? `Server-side OpenFS — bun:sqlite on disk, full wiki + knowledge graph at ${SERVER_API}`
+        : 'Sandboxed filesystem — runs entirely in your browser. No server, no uploads.';
+
+      // Check server connectivity
+      if (isServer) {
+        document.getElementById('cmd-input').disabled = false;
+        document.getElementById('cmd-input').focus();
+        fetch(`${SERVER_API}/status`).then(r => r.json()).then(d => {
+          setStatus('green', `connected · ${d.synthesizedCount ?? '?'} pages`);
+          println(`Connected to OpenFS server at ${SERVER_API}`, 'success');
+          println(`  ${d.synthesizedCount ?? '?'} synthesized pages · MW: ${d.mwUrl ?? '?'}`, 'dim');
+          println(`  Type 'help' for server commands.`, 'dim');
+        }).catch(() => {
+          setStatus('orange', 'server unreachable');
+          println(`⚠ Server not reachable at ${SERVER_API}`, 'stderr');
+        });
+      } else {
+        if (fs) setStatus('green', `ready (${fs.stats().fileCount} files)`);
+        println(`Switched to WASM mode — in-browser sql.js`, 'info');
+      }
+      println('', 'dim');
+    }
+
+    function runPreset(cmd) {
+      const input = document.getElementById('cmd-input');
+      input.value = cmd;
+      input.focus();
+      run(cmd);
+      input.value = '';
+    }
+
+    // ── Server command router ────────────────────────────────────────────────────
+    async function serverApi(path, body, method) {
+      const m = method ?? (body !== undefined ? 'POST' : 'GET');
+      const opts = m === 'POST'
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }
+        : { method: 'GET' };
+      const r = await fetch(SERVER_API + path, opts);
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? r.statusText); }
+      return r.json();
+    }
+
+    async function runServer(cmd) {
+      if (!cmd.trim()) return;
+      printPrompt(cmd);
+
+      const parts = cmd.trim().split(/\s+/);
+      const c = parts[0];
+      const arg = parts.slice(1).join(' ');
+
+      try {
+        if (c === 'help') {
+          println([
+            '  ── Read ──────────────────────────────────────────────',
+            '    ls [dir]              List pages in directory',
+            '    cat <path>            Read a wiki/source page',
+            '    grep <query>          Full-text search across wiki',
+            '    search <query>        Hybrid grep + semantic search',
+            '    pages                 List all pages with sizes',
+            '    log                   Show activity log',
+            '    status                Server health + sync info',
+            '',
+            '  ── Query ─────────────────────────────────────────────',
+            '    ask <question>        RAG query (grep + semantic)',
+            '    agent <question>      Agentic query (tool-calling)',
+            '',
+            '  ── Sync ──────────────────────────────────────────────',
+            '    pull                  MW → synthesize → OpenFS',
+            '    push                  OpenFS → MediaWiki',
+            '',
+            '  ── Knowledge ─────────────────────────────────────────',
+            '    embed wiki            Embed all wiki pages → Chroma',
+            '    embed s3 <bucket>     Run S3 → Chroma pipeline',
+            '    expand <topic>        Synthesize topic from embeddings',
+            '    lint                  Run L1-L10 health checks',
+            '',
+            '  ── SQL (server db) ───────────────────────────────────',
+            '    sql <query>           Run SQL on server OpenFS db',
+            '',
+            '  clear                   Clear terminal',
+          ].join('\n'), 'info');
+          return;
+        }
+
+        if (c === 'status') {
+          const d = await serverApi('/status');
+          println(`OpenFS Server  ${SERVER_API}`, 'success');
+          println(`  Pages:    ${d.synthesizedCount ?? '?'}`, 'stdout');
+          println(`  MW:       ${d.mwUrl ?? '?'}`, 'stdout');
+          println(`  Syncing:  ${d.syncRunning ? 'yes' : 'no'}`, 'stdout');
+          println(`  Last sync: ${d.lastSync ? new Date(d.lastSync).toLocaleString() : 'never'}`, 'stdout');
+          return;
+        }
+
+        if (c === 'ls') {
+          const dir = arg || '/wiki';
+          const entries = await serverApi(`/ls?dir=${encodeURIComponent(dir)}`);
+          println(dir + '/', 'info');
+          for (const e of (entries ?? [])) println(`  ${typeof e === 'string' ? e : e.path ?? e}`, 'stdout');
+          println(`  (${entries?.length ?? 0} entries)`, 'dim');
+          return;
+        }
+
+        if (c === 'cat') {
+          if (!arg) { println('Usage: cat <path>', 'stderr'); return; }
+          const d = await serverApi(`/cat?path=${encodeURIComponent(arg)}`);
+          if (d.error) { println(d.error, 'stderr'); return; }
+          println(`── ${arg} ──`, 'dim');
+          println(d.content, 'stdout');
+          return;
+        }
+
+        if (c === 'grep') {
+          const d = await serverApi('/grep', { query: arg, dir: '/wiki' });
+          if (!d?.length) { println('(no matches)', 'dim'); return; }
+          for (const r of d) {
+            println(r.path, 'info');
+            for (const m of (r.matches ?? [])) println(`  L${m.num}: ${m.line?.slice(0, 120)}`, 'stdout');
+          }
+          println(`  ↳ ${d.length} files`, 'dim');
+          return;
+        }
+
+        if (c === 'search') {
+          if (!arg) { println('Usage: search <query>', 'stderr'); return; }
+          const d = await serverApi('/kg-search', { query: arg, topK: 8 });
+          const results = d.results ?? [];
+          if (!results.length) { println('(no matches)', 'dim'); return; }
+          for (const r of results) {
+            println(`  ${(r.score*100).toFixed(0)}%  ${r.title ?? r.source}`, 'success');
+            println(`       ${(r.content ?? '').slice(0, 120).replace(/\n/g,' ')}`, 'dim');
+          }
+          println(`  ↳ ${results.length} results · semantic`, 'dim');
+          return;
+        }
+
+        if (c === 'pages') {
+          const pages = await serverApi('/pages');
+          println(`Wiki Pages (${pages.length} total)`, 'info');
+          for (const p of pages) {
+            const kb = ((p.size ?? 0) / 1024).toFixed(1);
+            println(`  ${(p.title ?? p.path ?? '').padEnd(40)} ${kb}kb`, 'stdout');
+          }
+          return;
+        }
+
+        if (c === 'log') {
+          const d = await serverApi('/log');
+          println(d.content || '(no log yet)', 'stdout');
+          return;
+        }
+
+        if (c === 'pull') {
+          println('Queuing pull from MediaWiki…', 'dim');
+          await serverApi('/pull', {});
+          println('✓ Pull queued — run status in a moment.', 'success');
+          return;
+        }
+
+        if (c === 'push') {
+          println('Pushing to MediaWiki…', 'dim');
+          const d = await serverApi('/push', {});
+          println(`✓ Pushed: ${d.pushed ?? '?'}  failed: ${d.failed ?? 0}`, 'success');
+          return;
+        }
+
+        if (c === 'ask') {
+          if (!arg) { println('Usage: ask <question>', 'stderr'); return; }
+          println('Searching…', 'dim');
+          const d = await serverApi('/query', { question: arg });
+          println(d.answer ?? 'No answer.', 'stdout');
+          if (d.citations?.length) {
+            println('', 'dim');
+            println('Sources: ' + d.citations.map(x => (x.title ?? x.path ?? '').replace(/\.md$/,'')).join(' · '), 'dim');
+          }
+          return;
+        }
+
+        if (c === 'agent') {
+          if (!arg) { println('Usage: agent <question>', 'stderr'); return; }
+          println('Agent thinking…', 'dim');
+          const d = await serverApi('/query-agent', { question: arg });
+          println(d.answer ?? 'No answer.', 'stdout');
+          if (d.citations?.length) {
+            println('', 'dim');
+            println('Sources: ' + d.citations.map(x => (x.title ?? x.path ?? '').replace(/\.md$/,'')).join(' · '), 'dim');
+          }
+          return;
+        }
+
+        if (c === 'embed') {
+          const sub = parts[1], bucket = parts[2];
+          if (sub === 'wiki') {
+            println('Embedding wiki pages into Chroma…', 'dim');
+            const d = await serverApi('/kg-ingest-wiki', {});
+            println(`✓ ${d.pagesEmbedded} pages, ${d.chunksStored} chunks embedded`, 'success');
+          } else if (sub === 's3' && bucket) {
+            println(`Embedding s3://${bucket}…`, 'dim');
+            const d = await serverApi('/s3-ingest', { bucket });
+            println(`✓ ${d.filesProcessed} files, ${d.chunksStored} chunks, ${d.entitiesExtracted} entities`, 'success');
+          } else {
+            println('Usage: embed wiki | embed s3 <bucket>', 'stderr');
+          }
+          return;
+        }
+
+        if (c === 'expand') {
+          if (!arg) { println('Usage: expand <topic>', 'stderr'); return; }
+          println(`Expanding "${arg}"…`, 'dim');
+          const d = await serverApi('/kg-expand', { topic: arg });
+          println(`✓ Expanded "${d.topic}" → ${d.wikiPath ?? 'existing pages'} (${d.resultCount} sources)`, 'success');
+          return;
+        }
+
+        if (c === 'lint') {
+          println('Running lint checks…', 'dim');
+          const d = await serverApi('/lint', {});
+          println(`Wiki Lint — ${d.summary.pagesChecked} pages · ${d.summary.errors} errors · ${d.summary.warnings} warnings`, d.summary.errors ? 'stderr' : 'success');
+          for (const i of (d.issues ?? [])) {
+            const icon = i.severity === 'error' ? '✗' : '⚠';
+            println(`  ${icon} [${i.rule}] ${i.path.replace('/wiki/','').replace('.md','')} — ${i.detail}`, i.severity === 'error' ? 'stderr' : 'stdout');
+            println(`       Fix: ${i.fix}`, 'dim');
+          }
+          if (!d.issues?.length) println('  All checks passed!', 'success');
+          return;
+        }
+
+        if (c === 'sql') {
+          println('(SQL on server db is not yet exposed — use the WASM mode for raw SQL)', 'dim');
+          return;
+        }
+
+        if (c === 'clear') { box.innerHTML = ''; return; }
+
+        println(`Unknown command: ${c}. Type 'help' for available commands.`, 'stderr');
+      } catch (e) {
+        println(`Error: ${e.message}`, 'stderr');
+      }
+    }
+
+    // ── State ───────────────────────────────────────────────────────────────────
+    let fs = null;
+
+    // ── Boot ────────────────────────────────────────────────────────────────────
+    println("OpenFS WASM — booting SQLite in your browser…", "info");
+    println("Type 'help' for available commands.", "dim");
+    println("", "dim");
+
+    const input = document.getElementById("cmd-input");
+
+    try {
+      fs = await createAgentFs({
+        wasmPath: "https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.wasm",
+        writable: true,
+        docs: {},
+      });
+      setStatus("green", "ready (empty)");
+      println("SQLite WASM loaded. Filesystem is empty — upload files or click 'Load demo'.", "success");
+      println("", "dim");
+      input.disabled = false;
+      input.focus();
+    } catch (e) {
+      setStatus("orange", "error");
+      println("Boot error: " + e.message, "stderr");
+    }
+
+    updateStats();
+
+    // ── History ─────────────────────────────────────────────────────────────────
+    const history = [];
+    let histIdx = -1;
+
+    // ── Command execution ────────────────────────────────────────────────────────
+    async function run(cmd) {
+      cmd = cmd.trim();
+      if (!cmd) return;
+
+      history.unshift(cmd);
+      histIdx = -1;
+
+      // Route to server mode if active
+      if (mode === 'server') {
+        await runServer(cmd);
+        return;
+      }
+
+      printPrompt(cmd);
+      if (!fs) { println("Not ready yet.", "stderr"); return; }
+
+      // Built-ins
+      if (cmd === "help") {
+        println([
+          "  ── Filesystem (read) ────────────────────────────────",
+          "    ls [path]                 List directory",
+          "    cat <file>                Read file",
+          "    head [-n N] <file>        First N lines",
+          "    grep [-r] [-i] <pat> [/]  Search files",
+          "    find [path]               Find all files",
+          "    stat <file>               Metadata",
+          "    wc [-l] <file>            Word/line count",
+          "",
+          "  ── Filesystem (write) ───────────────────────────────",
+          "    write <path> <content>    Write / overwrite file",
+          "    append <path> <content>   Append to file",
+          "    rm <path>                 Delete file",
+          "",
+          "  ── Search ──────────────────────────────────────────",
+          "    search <query>            FTS5 full-text search",
+          "",
+          "  ── S3 ──────────────────────────────────────────────",
+          "    s3 buckets             List all buckets",
+          "    s3 ls [bucket]         List objects in bucket",
+          "    s3 cat <key>           Read S3 object to terminal",
+          "    s3 get <key> [path]    Pull S3 object → WASM fs",
+          "    s3 put <key> <path>    Push WASM file → S3",
+          "    s3 rm <key>            Delete object",
+          "    → 'S3 connect' button: set endpoint/bucket/token",
+          "",
+          "  ── SQL ─────────────────────────────────────────────",
+          "    sql SELECT * FROM tbl      Query (returns table)",
+          "    sql CREATE TABLE t (...)   DDL — create tables",
+          "    sql INSERT INTO t VALUES   DML — insert/update/delete",
+          "    .tables                    List all tables",
+          "    .schema                    Show CREATE statements",
+          "",
+          "  ── GitHub ──────────────────────────────────────────",
+          "    github <owner/repo> [branch]   Load public repo into fs",
+          "    github token <pat>             Set token (raises rate limit)",
+          "",
+          "  ── Stats & bench ───────────────────────────────────",
+          "    stats                     File count + sizes",
+          "    bench                     Run grep/search benchmark suite",
+          "    export                    DB snapshot size",
+          "",
+          "  Upload files above, then run commands here.",
+        ].join("\n"), "info");
+        return;
+      }
+
+      if (cmd === "stats") {
+        const s = fs.stats();
+        println(`files: ${s.fileCount}  size: ${fmtSize(s.totalSize)}  chunks: ${s.chunkCount}`, "stdout");
+        return;
+      }
+
+      if (cmd === "bench") {
+        const s = fs.stats();
+        println(`Benchmark suite — ${s.fileCount} files, ${fmtSize(s.totalSize)}`, "info");
+        println("─────────────────────────────────────────────────────", "dim");
+        const suite = [
+          ["search",  "authentication"],
+          ["search",  "error handling middleware"],
+          ["grep",    "-r function /"],
+          ["grep",    "-ri middleware /"],
+          ["grep",    "-r require /"],
+          ["grep",    "-r exports /"],
+          ["exec",    "find / -name '*.js'"],
+          ["exec",    "find / -name '*.ts'"],
+        ];
+        const results = [];
+        for (const [type, q] of suite) {
+          const label = `${type} ${q}`;
+          let ms, count;
+          const t0 = performance.now();
+          if (type === "search") {
+            const paths = await fs.search(q);
+            ms = (performance.now() - t0).toFixed(1);
+            count = paths.length + " files";
+          } else {
+            let execCmd = q;
+            if (type === "grep") {
+              execCmd = "grep " + q;
+              if (!q.includes("/")) execCmd += " /";
+            }
+            const r = await fs.exec(type === "exec" ? q : execCmd);
+            ms = (performance.now() - t0).toFixed(1);
+            const lines = r.stdout ? r.stdout.split("\n").filter(Boolean).length : 0;
+            count = lines + " lines";
+          }
+          results.push({ label, ms, count });
+          println(`  ${label.padEnd(40)} ${String(ms + "ms").padStart(8)}  ${count}`, "stdout");
+        }
+        const avg = (results.reduce((a, r) => a + parseFloat(r.ms), 0) / results.length).toFixed(1);
+        println("─────────────────────────────────────────────────────", "dim");
+        println(`  avg: ${avg}ms  ·  corpus: ${s.fileCount} files / ${fmtSize(s.totalSize)}`, "info");
+        return;
+      }
+
+      if (cmd === "export") {
+        const snap = fs.export();
+        println(`DB snapshot: ${fmtSize(snap.byteLength)}`, "stdout");
+        return;
+      }
+
+      if (cmd === "clear") { box.innerHTML = ""; return; }
+
+      // ── Write / append / rm ──────────────────────────────────────────────────
+      if (cmd.startsWith("write ") || cmd.startsWith("append ")) {
+        const isAppend = cmd.startsWith("append ");
+        const rest = cmd.slice(isAppend ? 7 : 6).trim();
+        const spaceIdx = rest.indexOf(" ");
+        if (spaceIdx === -1) { println(`Usage: ${isAppend ? "append" : "write"} <path> <content>`, "stderr"); return; }
+        const path = rest.slice(0, spaceIdx);
+        const content = rest.slice(spaceIdx + 1);
+        const existing = isAppend ? await fs.read(path).catch(() => "") : "";
+        await fs.ingest({ [path]: existing + (existing && !existing.endsWith("\n") ? "\n" : "") + content });
+        println(`${isAppend ? "appended" : "wrote"} ${path}`, "success");
+        updateStats();
+        return;
+      }
+
+      if (cmd.startsWith("rm ")) {
+        const path = cmd.slice(3).trim();
+        await fs.remove(path);
+        println(`removed ${path}`, "success");
+        updateStats();
+        return;
+      }
+
+      // ── S3 commands ──────────────────────────────────────────────────────────
+      if (cmd.startsWith("s3 ") || cmd === "s3") {
+        const parts = cmd.split(/\s+/);
+        const sub = parts[1];
+
+        const { endpoint: s3ep, bucket: s3bucket, token: s3tok } = s3Config;
+        const s3 = async (method, path, body) => {
+          const r = await fetch(s3ep + path, {
+            method,
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${s3tok}` },
+            ...(body ? { body: JSON.stringify(body) } : {}),
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({ detail: r.statusText }));
+            throw new Error(err.detail || r.statusText);
+          }
+          return r.json();
+        };
+
+        // Default bucket from config if not specified in command
+        try {
+          // s3 buckets
+          if (!sub || sub === "buckets") {
+            const data = await s3("GET", "/buckets");
+            const buckets = data.buckets ?? data;
+            if (!buckets.length) { println("(no buckets)", "dim"); return; }
+            println("name               creation_date", "info");
+            println("─────────────────  ─────────────", "dim");
+            for (const b of buckets) println(`${(b.name ?? b).padEnd(18)} ${b.creation_date ?? ""}`, "stdout");
+            return;
+          }
+
+          // s3 ls [bucket] [prefix]
+          if (sub === "ls") {
+            const bucket = parts[2] ?? s3bucket;
+            const prefix = parts[3] ?? "";
+            const objects = await s3("GET", `/objects/list/${bucket}?prefix=${encodeURIComponent(prefix)}&recursive=true`);
+            if (!objects.length) { println("(empty)", "dim"); return; }
+            println("key                              size     last_modified", "info");
+            println("───────────────────────────────  ───────  ────────────────────", "dim");
+            for (const o of objects) {
+              println(`${(o.name ?? "").padEnd(32)} ${fmtSize(o.size).padEnd(8)} ${(o.last_modified ?? "").slice(0,19)}`, "stdout");
+            }
+            return;
+          }
+
+          // s3 cat <key>  — read S3 object and print (no local save)
+          if (sub === "cat") {
+            const key = parts[2];
+            if (!key) { println("Usage: s3 cat <key>", "stderr"); return; }
+            const r = await fetch(`${s3ep}/objects/download/${s3bucket}?object_name=${encodeURIComponent(key)}`, {
+              headers: { "Authorization": `Bearer ${s3tok}` },
+            });
+            if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+            println(await r.text(), "stdout");
+            return;
+          }
+
+          // s3 get <key> [local-path]  — pull S3 object into WASM fs
+          if (sub === "get") {
+            const key = parts[2];
+            if (!key) { println("Usage: s3 get <key> [local-path]", "stderr"); return; }
+            const localPath = parts[3] ?? `/${key}`;
+            const r = await fetch(`${s3ep}/objects/download/${s3bucket}?object_name=${encodeURIComponent(key)}`, {
+              headers: { "Authorization": `Bearer ${s3tok}` },
+            });
+            if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+            const content = await r.text();
+            await fs.ingest({ [localPath]: content });
+            println(`pulled s3://${s3bucket}/${key} → ${localPath}`, "success");
+            updateStats();
+            return;
+          }
+
+          // s3 put <key> <local-path>  — uses default bucket
+          if (sub === "put") {
+            const key = parts[2], localPath = parts[3];
+            if (!key || !localPath) { println("Usage: s3 put <key> <local-path>", "stderr"); return; }
+            const content = await fs.read(localPath);
+            await s3("POST", `/objects/put/${s3bucket}`, { key, content });
+            println(`pushed ${localPath} → s3://${bucket}/${key}`, "success");
+            return;
+          }
+
+          // s3 rm <key>  — uses default bucket
+          if (sub === "rm") {
+            const key = parts[2];
+            if (!key) { println("Usage: s3 rm <key>", "stderr"); return; }
+            await s3("DELETE", `/objects/${s3bucket}?object_name=${encodeURIComponent(key)}`);
+            println(`deleted s3://${s3bucket}/${key}`, "success");
+            return;
+          }
+
+          println(`Unknown: s3 ${sub}. Try: buckets | ls | cat <key> | get <key> [path] | put <key> <path> | rm <key>`, "stderr");
+        } catch (e) { println(`S3 error: ${e.message}`, "stderr"); }
+        return;
+      }
+
+      if (cmd.startsWith("sql ") || cmd === ".tables" || cmd === ".schema") {
+        let q = cmd.startsWith("sql ") ? cmd.slice(4).trim() : cmd;
+        if (q === ".tables") q = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+        if (q === ".schema") q = "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type, name";
+        const isRead = /^\s*(SELECT|WITH|PRAGMA|EXPLAIN|VALUES)\b/i.test(q);
+        try {
+          if (isRead) {
+            const rows = fs.query(q);
+            if (!rows.length) { println("(no rows)", "dim"); return; }
+            const keys = Object.keys(rows[0]);
+            const widths = keys.map(k => Math.max(k.length, ...rows.map(r => String(r[k] ?? "").length)));
+            const pad = (s, w) => String(s ?? "").padEnd(w);
+            println(keys.map((k,i) => pad(k, widths[i])).join("  "), "info");
+            println(widths.map(w => "─".repeat(w)).join("  "), "dim");
+            for (const row of rows) println(keys.map((k,i) => pad(row[k], widths[i])).join("  "), "stdout");
+            println(`(${rows.length} row${rows.length === 1 ? "" : "s"})`, "dim");
+          } else {
+            fs.run(q);
+            println("OK", "success");
+          }
+        } catch (e) { println("SQL error: " + e.message, "stderr"); }
+        return;
+      }
+
+      // ── GitHub repo loader ────────────────────────────────────────────────────
+      if (cmd.startsWith("github ")) {
+        const parts = cmd.split(/\s+/);
+        const sub = parts[1];
+
+        // github token <pat>  — store PAT for higher rate limits
+        if (sub === "token") {
+          githubToken = parts[2] ?? "";
+          println(githubToken ? `GitHub token set (${githubToken.slice(0,4)}…)` : "GitHub token cleared", "success");
+          return;
+        }
+
+        // github <owner/repo> [branch]
+        if (!sub || !sub.includes("/")) {
+          println("Usage:  github <owner/repo> [branch]", "stderr");
+          println("        github token <personal-access-token>", "stderr");
+          return;
+        }
+
+        const [ghOwner, ghRepo] = sub.split("/");
+        let ghBranch = parts[2] ?? "main";
+
+        const ghHeaders = {};
+        if (githubToken) ghHeaders["Authorization"] = `token ${githubToken}`;
+
+        const fetchTree = async (branch) => {
+          const r = await fetch(
+            `https://api.github.com/repos/${ghOwner}/${ghRepo}/git/trees/${branch}?recursive=1`,
+            { headers: ghHeaders }
+          );
+          return { res: r, branch };
+        };
+
+        try {
+          println(`Fetching tree for ${ghOwner}/${ghRepo}@${ghBranch}…`, "info");
+          setStatus("orange", "fetching github…");
+
+          let { res, branch } = await fetchTree(ghBranch);
+
+          // Auto-fallback: main → master
+          if (!res.ok && res.status === 404 && ghBranch === "main") {
+            println("'main' not found, trying 'master'…", "dim");
+            ({ res, branch } = await fetchTree("master"));
+            ghBranch = branch;
+          }
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(`${res.status}: ${errData.message ?? res.statusText}`);
+          }
+
+          const treeData = await res.json();
+          if (treeData.truncated) println("⚠ Tree truncated (>100k items) — loading first batch only.", "stderr");
+
+          const SKIP_EXT = /\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf|eot|mp4|mp3|pdf|zip|gz|tar\.gz|tar|bin|exe|dmg|pkg|pyc|so|dll|class|wasm)$/i;
+          const SKIP_PATH = /\/(\.git|node_modules|\.next|dist|build|__pycache__)($|\/)/;
+          const MAX_SIZE = 256 * 1024; // 256 KB per file
+
+          const blobs = treeData.tree.filter(item =>
+            item.type === "blob" &&
+            !SKIP_EXT.test(item.path) &&
+            !SKIP_PATH.test("/" + item.path) &&
+            (item.size ?? 0) <= MAX_SIZE &&
+            (item.size ?? 1) > 0
+          );
+
+          const total = treeData.tree.length;
+          const skipped = total - blobs.length;
+          println(`Tree: ${total} items → fetching ${blobs.length} text files (skipping ${skipped} binary/large/node_modules)…`, "dim");
+
+          if (blobs.length === 0) {
+            println("Nothing to load after filtering.", "stderr");
+            setStatus("green", `ready (${fs.stats().fileCount} files)`);
+            return;
+          }
+
+          // Live progress line
+          const progressEl = document.createElement("div");
+          progressEl.className = "line info";
+          progressEl.textContent = `Fetching 0 / ${blobs.length}…`;
+          box.appendChild(progressEl);
+          box.scrollTop = box.scrollHeight;
+
+          let done = 0;
+          const docs = {};
+          const CONCURRENCY = 12;
+
+          const fetchBlob = async (item) => {
+            try {
+              const rawUrl = `https://raw.githubusercontent.com/${ghOwner}/${ghRepo}/${ghBranch}/${item.path}`;
+              const r = await fetch(rawUrl);
+              if (r.ok) {
+                const text = await r.text();
+                // Skip files that look binary after reading
+                if (!text.includes("\0")) docs["/" + item.path] = text;
+              }
+            } catch { /* skip on network error */ }
+            done++;
+            if (done % CONCURRENCY === 0 || done === blobs.length) {
+              progressEl.textContent = `Fetching ${done} / ${blobs.length}…`;
+              box.scrollTop = box.scrollHeight;
+            }
+          };
+
+          for (let i = 0; i < blobs.length; i += CONCURRENCY) {
+            await Promise.all(blobs.slice(i, i + CONCURRENCY).map(fetchBlob));
+          }
+
+          progressEl.textContent = `Ingesting ${Object.keys(docs).length} files…`;
+          box.scrollTop = box.scrollHeight;
+
+          await fs.ingest(docs);
+
+          const loaded = Object.keys(docs).length;
+          progressEl.textContent = `✓ Loaded ${loaded} files from ${ghOwner}/${ghRepo}@${ghBranch}`;
+          progressEl.className = "line success";
+
+          println(`Try: ls /  ·  grep -r <term> /  ·  search <query>  ·  stats`, "dim");
+          setStatus("green", `ready (${fs.stats().fileCount} files)`);
+          updateStats();
+        } catch (e) {
+          println(`GitHub error: ${e.message}`, "stderr");
+          setStatus("green", `ready (${fs.stats().fileCount} files)`);
+        }
+        return;
+      }
+
+      if (cmd.startsWith("search ")) {
+        const q = cmd.slice(7).trim();
+        if (!q) { println("Usage: search <query>", "stderr"); return; }
+        const t0 = performance.now();
+        const paths = await fs.search(q);
+        const ms = (performance.now() - t0).toFixed(1);
+        println(paths.length ? paths.join("\n") : "(no matches)", paths.length ? "stdout" : "dim");
+        println(`  ↳ FTS5 · ${ms}ms · ${paths.length} file${paths.length === 1 ? "" : "s"}`, "dim");
+        return;
+      }
+
+      // Shell commands → exec
+      // Default grep with no path: add -r /
+      let execCmd = cmd;
+      if (/^grep\b/.test(cmd) && !cmd.split(/\s+/).slice(1).some(w => w.startsWith("/"))) {
+        const hasR = /\b-[a-zA-Z]*r/.test(cmd);
+        execCmd = cmd + (hasR ? " /" : " -r /");
+      }
+      try {
+        const t0 = performance.now();
+        const r = await fs.exec(execCmd);
+        const ms = (performance.now() - t0).toFixed(1);
+        if (r.stdout) println(r.stdout, "stdout");
+        if (r.stderr) println(r.stderr, "stderr");
+        const matchCount = r.stdout ? r.stdout.split("\n").filter(Boolean).length : 0;
+        const meta = [];
+        if (r.optimized) meta.push("FTS5 optimized");
+        meta.push(`${ms}ms`);
+        if (matchCount > 0) meta.push(`${matchCount} lines`);
+        println(`  ↳ ${meta.join(" · ")}`, "dim");
+      } catch (e) {
+        println("Error: " + e.message, "stderr");
+      }
+    }
+
+    // ── Input handling ───────────────────────────────────────────────────────────
+    input.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") {
+        const cmd = input.value;
+        input.value = "";
+        await run(cmd);
+        updateStats();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (histIdx < history.length - 1) histIdx++;
+        input.value = history[histIdx] ?? "";
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (histIdx > 0) histIdx--;
+        else { histIdx = -1; input.value = ""; }
+        if (histIdx >= 0) input.value = history[histIdx];
+      } else if (e.key === "l" && e.ctrlKey) {
+        e.preventDefault();
+        box.innerHTML = "";
+      }
+    });
+
+    // ── File/Folder upload ───────────────────────────────────────────────────────
+    async function ingestFileList(fileList) {
+      if (!fs || fileList.length === 0) return;
+      setStatus("orange", "ingesting…");
+      println(`Ingesting ${fileList.length} file(s)…`, "info");
+
+      const docs = {};
+      const SKIP = /\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf|eot|mp4|mp3|pdf|zip|gz|tar|bin|exe|dmg|pkg)$/i;
+      const MAX_SIZE = 512 * 1024; // 512 KB per file
+
+      let skipped = 0;
+      await Promise.all(Array.from(fileList).map(file => new Promise(resolve => {
+        // Normalise path: keep full webkitRelativePath if present
+        let path = file.webkitRelativePath
+          ? "/" + file.webkitRelativePath
+          : "/" + file.name;
+
+        if (SKIP.test(file.name) || file.size > MAX_SIZE) {
+          skipped++;
+          return resolve();
+        }
+
+        const reader = new FileReader();
+        reader.onload = e => { docs[path] = e.target.result; resolve(); };
+        reader.onerror = () => { skipped++; resolve(); };
+        reader.readAsText(file);
+      })));
+
+      await fs.ingest(docs);
+      const loaded = Object.keys(docs).length;
+      println(`Loaded ${loaded} file(s)${skipped ? `, skipped ${skipped} (binary/large)` : ""}.`, "success");
+      if (loaded > 0) {
+        println("Try: ls /  or  grep -r your_term /", "dim");
+      }
+      setStatus("green", `ready (${fs.stats().fileCount} files)`);
+      updateStats();
+    }
+
+    document.getElementById("btn-files").addEventListener("click", () => {
+      document.getElementById("file-input").click();
+    });
+
+    document.getElementById("btn-folder").addEventListener("click", () => {
+      document.getElementById("folder-input").click();
+    });
+
+    document.getElementById("file-input").addEventListener("change", async (e) => {
+      await ingestFileList(e.target.files);
+      e.target.value = "";
+    });
+
+    document.getElementById("folder-input").addEventListener("change", async (e) => {
+      await ingestFileList(e.target.files);
+      e.target.value = "";
+    });
+
+    // ── Drag & drop ──────────────────────────────────────────────────────────────
+    const zone = document.getElementById("drop-zone");
+
+    zone.addEventListener("click", () => document.getElementById("file-input").click());
+
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+    zone.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      zone.classList.remove("drag-over");
+
+      const items = e.dataTransfer.items;
+      const files = [];
+
+      async function traverseEntry(entry, basePath = "") {
+        if (entry.isFile) {
+          await new Promise(res => entry.file(f => {
+            // Attach a synthetic webkitRelativePath
+            Object.defineProperty(f, "webkitRelativePath", {
+              value: basePath ? basePath + "/" + f.name : f.name,
+              writable: false,
+            });
+            files.push(f);
+            res();
+          }));
+        } else if (entry.isDirectory) {
+          await new Promise(res => {
+            const reader = entry.createReader();
+            const readAll = () => reader.readEntries(async entries => {
+              if (!entries.length) return res();
+              for (const child of entries) {
+                await traverseEntry(child, basePath ? basePath + "/" + entry.name : entry.name);
+              }
+              readAll();
+            });
+            readAll();
+          });
+        }
+      }
+
+      if (items) {
+        for (const item of items) {
+          const entry = item.webkitGetAsEntry?.();
+          if (entry) await traverseEntry(entry);
+          else if (item.kind === "file") files.push(item.getAsFile());
+        }
+      } else {
+        files.push(...e.dataTransfer.files);
+      }
+
+      await ingestFileList(files);
+    });
+
+    // ── Demo corpus ──────────────────────────────────────────────────────────────
+    document.getElementById("btn-load-demo").addEventListener("click", async () => {
+      if (!fs) return;
+      setStatus("orange", "loading demo…");
+      await fs.ingest({
+        "/docs/auth/overview.md": "# Authentication\n\nUse Bearer tokens for all API requests.\nThe access_token expires after 1 hour.\nUse the refresh_token to get a new access_token.\n\n## OAuth2\nWe support OAuth2 authorization code flow.\nRedirect URI must be registered before use.",
+        "/docs/auth/oauth2.md": "# OAuth2 Guide\n\n1. Register your app at https://dashboard.example.com\n2. Exchange client_credentials for an access_token\n3. Include Authorization: Bearer <access_token> in every request\n4. Refresh using the refresh_token before expiry",
+        "/docs/api/users.md": "# Users API\n\nPOST /users — create a new user (requires access_token)\nGET  /users/:id — get user by ID\nDELETE /users/:id — delete user (admin scope required)\n\n## Rate limiting\n100 requests per minute per access_token.",
+        "/docs/api/webhooks.md": "# Webhooks\n\nUse webhook_secret to verify incoming payloads.\nHMAC-SHA256 signature in X-Webhook-Signature header.\n\n## Retry policy\nFailed deliveries are retried up to 3 times with exponential backoff.",
+        "/docs/guides/quickstart.md": "# Quickstart\n\n1. Create an account and get your api_key\n2. Exchange api_key for access_token via POST /auth/token\n3. Use access_token in Authorization: Bearer <token> header\n4. Make your first API call",
+        "/docs/guides/errors.md": "# Error Reference\n\n401 Unauthorized — missing or invalid access_token\n403 Forbidden — insufficient scope\n429 Too Many Requests — rate limit hit\n500 Internal Server Error — contact support",
+        "/config/settings.json": JSON.stringify({ env: "production", region: "us-east-1", features: { webhooks: true, oauth2: true } }, null, 2),
+      });
+      println("Demo corpus loaded (7 files).", "success");
+      println("Try: ls /docs  ·  grep -r access_token /  ·  search webhook", "dim");
+      setStatus("green", `ready (${fs.stats().fileCount} files)`);
+      updateStats();
+    });
+  </script>
+</body>
+</html>

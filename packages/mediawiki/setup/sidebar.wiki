@@ -1,0 +1,23 @@
+* navigation
+** mainpage|mainpage-description
+** Special:AllPages|All articles
+** Special:Categories|All categories
+** Special:Random|Random article
+** Special:RecentChanges|Recent changes
+* Artifacts
+** Category:Artifacts|Browse artifacts
+* Assessments
+** Category:Assessments|Browse assessments
+* Audiences
+** Category:Audiences|Browse audiences
+* Books
+** Category:Books|Browse books
+* People
+** Category:People|Browse people
+* OpenFS
+** OpenFS_Terminal|Agent Terminal
+** OpenFS_Playground|Live Playground
+** OpenFS_Architecture|Architecture
+** OpenFS_Adapters|Adapters
+** OpenFS_Agent_Wiki|Agent Wiki
+** OpenFS_Server|API Server

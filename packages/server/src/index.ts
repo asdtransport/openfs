@@ -1,0 +1,299 @@
+/**
+ * @openfs/server
+ *
+ * Hono API server for remote OpenFS filesystem access.
+ * Initializes SQLite, Chroma, and S3 (MinIO) adapters with shared sample docs.
+ * The /api/fs/exec endpoint accepts an `adapter` field ("sqlite" | "chroma" | "s3")
+ * so the playground can let users switch between backing stores.
+ *
+ * Run: bun run --hot src/index.ts
+ */
+
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { Bash } from "just-bash";
+import { PathTree } from "@openfs/core";
+import { createOpenFs } from "@openfs/core";
+import { SqliteAdapter } from "@openfs/adapter-sqlite";
+import { ChromaAdapter } from "@openfs/adapter-chroma";
+import { S3Adapter } from "@openfs/adapter-s3";
+import { createFsRoutes } from "./routes/fs.js";
+import { createAdminRoutes } from "./routes/admin.js";
+import { healthRoutes } from "./routes/health.js";
+import { s3ApiRoutes } from "./routes/s3-api.js";
+
+// --- Sample documentation (shared across both adapters) ---
+const SAMPLE_DOCS: Record<string, string> = {
+  "/docs/getting-started.mdx": `# Getting Started
+
+Welcome to our API. To authenticate, you'll need an access_token.
+
+## Installation
+
+\`\`\`bash
+npm install our-sdk
+\`\`\`
+
+## Quick Start
+
+Use your access_token in the Authorization header:
+
+\`\`\`
+Authorization: Bearer <your_access_token>
+\`\`\`
+`,
+  "/docs/auth/oauth.mdx": `# OAuth 2.0
+
+Our API uses OAuth 2.0 for authentication.
+
+## Getting an access_token
+
+1. Register your application
+2. Redirect users to the authorization URL
+3. Exchange the code for an access_token
+4. Use the access_token in API requests
+
+## Refresh Tokens
+
+When your access_token expires, use the refresh_token to get a new one.
+`,
+  "/docs/auth/api-keys.mdx": `# API Keys
+
+API keys are an alternative to OAuth for server-to-server communication.
+
+## Creating an API Key
+
+Navigate to Settings → API Keys and click "Create New Key".
+
+## Usage
+
+Include the key in the X-API-Key header:
+
+\`\`\`
+X-API-Key: your_api_key_here
+\`\`\`
+`,
+  "/docs/api/users.mdx": `# Users API
+
+## GET /users
+
+Returns a list of users. Requires access_token in the Authorization header.
+
+### Parameters
+
+- limit: Maximum number of results (default: 20)
+- offset: Pagination offset
+
+### Response
+
+\`\`\`json
+{
+  "users": [{"id": 1, "name": "Alice"}],
+  "total": 100
+}
+\`\`\`
+`,
+  "/docs/api/webhooks.mdx": `# Webhooks
+
+Configure webhooks to receive real-time notifications.
+
+## Setup
+
+1. Navigate to Settings → Webhooks
+2. Add your endpoint URL
+3. Select events to subscribe to
+
+## Webhook Payload
+
+Each webhook includes a signature in the X-Webhook-Signature header.
+Verify the signature using your webhook_secret.
+
+## Events
+
+- user.created
+- user.updated
+- invoice.paid
+- subscription.cancelled
+`,
+  "/docs/guides/quickstart.mdx": `# Quick Start Guide
+
+Get started by generating an access_token using the OAuth guide.
+
+## Step 1: Create an Application
+
+Go to the developer portal and register a new application.
+
+## Step 2: Authenticate
+
+Follow the OAuth 2.0 flow to get your access_token.
+
+## Step 3: Make Your First Request
+
+\`\`\`bash
+curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  https://api.example.com/users
+\`\`\`
+`,
+};
+
+// ============================================================
+// 1. SQLite adapter
+// ============================================================
+const DB_PATH = process.env.OPENFS_DB || ":memory:";
+const sqliteAdapter = new SqliteAdapter({ dbPath: DB_PATH });
+sqliteAdapter.ingestDirectory(SAMPLE_DOCS);
+
+const sqlitePathMap = await sqliteAdapter.init();
+const sqliteTree = new PathTree();
+sqliteTree.build(sqlitePathMap);
+
+const sqliteFs = createOpenFs(sqliteAdapter, { pathTree: sqliteTree });
+const sqliteBash = new Bash({ fs: sqliteFs, cwd: "/" });
+
+console.log(`📂 SQLite: ${sqliteTree.fileCount} files loaded (${DB_PATH})`);
+
+// ============================================================
+// 2. Chroma adapter (needs CHROMA_URL — set via docker-compose)
+// ============================================================
+const CHROMA_URL = process.env.CHROMA_URL || "http://localhost:8000";
+const COLLECTION = "openfs-playground";
+
+let chromaBash: Bash | null = null;
+let chromaTree: PathTree | null = null;
+let chromaAdapter: ChromaAdapter | null = null;
+let chromaError: string | null = null;
+
+try {
+  chromaAdapter = new ChromaAdapter({
+    collectionName: COLLECTION,
+    chromaUrl: CHROMA_URL,
+  });
+  await chromaAdapter.ingestDocuments(SAMPLE_DOCS);
+
+  const chromaPathMap = await chromaAdapter.init();
+  chromaTree = new PathTree();
+  chromaTree.build(chromaPathMap);
+
+  const chromaFs = createOpenFs(chromaAdapter, { pathTree: chromaTree });
+  chromaBash = new Bash({ fs: chromaFs, cwd: "/" });
+
+  console.log(`🔮 Chroma: ${chromaTree.fileCount} files loaded (${CHROMA_URL}, collection: ${COLLECTION})`);
+} catch (err: any) {
+  chromaError = err.message || String(err);
+  console.warn(`⚠️  Chroma unavailable: ${chromaError}`);
+}
+
+// ============================================================
+// 3. S3 / MinIO adapter
+// ============================================================
+const S3_ENDPOINT = process.env.S3_ENDPOINT || "http://localhost:9000";
+const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY || "minioadmin";
+const S3_SECRET_KEY = process.env.S3_SECRET_KEY || "minioadmin";
+const S3_BUCKET = process.env.S3_BUCKET || "openfs-playground";
+
+let s3Bash: Bash | null = null;
+let s3Tree: PathTree | null = null;
+let s3Adapter: S3Adapter | null = null;
+let s3Error: string | null = null;
+
+try {
+  s3Adapter = new S3Adapter({
+    bucket: S3_BUCKET,
+    endpoint: S3_ENDPOINT,
+    accessKeyId: S3_ACCESS_KEY,
+    secretAccessKey: S3_SECRET_KEY,
+    forcePathStyle: true,
+  });
+  await s3Adapter.ingestDocuments(SAMPLE_DOCS);
+
+  const s3PathMap = await s3Adapter.init();
+  s3Tree = new PathTree();
+  s3Tree.build(s3PathMap);
+
+  const s3Fs = createOpenFs(s3Adapter, { pathTree: s3Tree });
+  s3Bash = new Bash({ fs: s3Fs, cwd: "/" });
+
+  console.log(`🪣 S3/MinIO: ${s3Tree.fileCount} files loaded (${S3_ENDPOINT}, bucket: ${S3_BUCKET})`);
+} catch (err: any) {
+  s3Error = err.message || String(err);
+  console.warn(`⚠️  S3/MinIO unavailable: ${s3Error}`);
+}
+
+// ============================================================
+// Bash instances map — routes pick the right one
+// ============================================================
+export type AdapterName = "sqlite" | "chroma" | "s3";
+
+export interface AdapterSet {
+  bash: Bash;
+  tree: PathTree;
+  adapter: import("@openfs/core").OpenFsAdapter;
+  name: string;
+}
+
+function getAdapter(name: AdapterName): AdapterSet | { error: string } {
+  if (name === "chroma") {
+    if (!chromaBash || !chromaTree) {
+      return { error: chromaError || "Chroma adapter not available" };
+    }
+    return { bash: chromaBash, tree: chromaTree, adapter: chromaAdapter!, name: "chroma" };
+  }
+  if (name === "s3") {
+    if (!s3Bash || !s3Tree) {
+      return { error: s3Error || "S3 adapter not available" };
+    }
+    return { bash: s3Bash, tree: s3Tree, adapter: s3Adapter!, name: "s3" };
+  }
+  return { bash: sqliteBash, tree: sqliteTree, adapter: sqliteAdapter, name: "sqlite" };
+}
+
+// --- App ---
+const app = new Hono();
+
+// Middleware
+app.use("*", logger());
+app.use("*", cors());
+
+// Routes
+app.route("/health", healthRoutes);
+app.route("/api/fs", createFsRoutes(sqliteAdapter, getAdapter));
+app.route("/api/admin", createAdminRoutes(sqliteAdapter));
+app.route("/api/s3", s3ApiRoutes);
+
+// Landing
+app.get("/", (c) =>
+  c.json({
+    name: "@openfs/server",
+    version: "0.1.0",
+    adapters: {
+      sqlite: "ready",
+      chroma: chromaBash ? "ready" : `unavailable: ${chromaError}`,
+      s3: s3Bash ? "ready" : `unavailable: ${s3Error}`,
+    },
+    s3_api: {
+      status: "proxied",
+      upstream: process.env.MINIO_API_URL || "http://localhost:8080",
+      docs: `${process.env.MINIO_API_URL || "http://localhost:8080"}/docs`,
+      proxy: "/api/s3/* -> adapter-s3-api /api/v1/*",
+    },
+    endpoints: {
+      exec: 'POST /api/fs/exec  { command: "ls /docs", adapter: "sqlite"|"chroma"|"s3" }',
+      read: "GET  /api/fs/read?path=/docs/auth/oauth.mdx",
+      readdir: "GET  /api/fs/readdir?path=/docs&adapter=sqlite|chroma|s3",
+      search: 'POST /api/fs/search  { query: "access_token" }',
+      s3_buckets: "GET  /api/s3/buckets",
+      s3_objects: "GET  /api/s3/objects/list/{bucket}",
+      s3_health: "GET  /api/s3/monitoring/health",
+      health: "GET  /health",
+    },
+  }),
+);
+
+const port = parseInt(process.env.PORT || "3456", 10);
+console.log(`🗂️  OpenFS server running on http://localhost:${port}`);
+
+export default {
+  port,
+  fetch: app.fetch,
+};

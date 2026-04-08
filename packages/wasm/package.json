@@ -1,0 +1,74 @@
+{
+  "name": "@openfs/wasm",
+  "version": "0.1.0",
+  "description": "Sandboxed virtual filesystem for AI agents. One import, one call — runs in Browser, Node.js, Bun, Deno. No native code.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./adapter": {
+      "types": "./dist/adapter.d.ts",
+      "import": "./dist/adapter.js",
+      "default": "./dist/adapter.js"
+    }
+  },
+  "bin": {
+    "openfs": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && bun run build:js && bun run build:types",
+    "build:js": "bun build src/index.ts --outdir dist --format esm --target browser --external sql.js --external just-bash && bun build src/adapter.ts --outdir dist --format esm --target browser --external sql.js --external just-bash && bun build src/cli.ts --outdir dist --format esm --target node --external sql.js --external just-bash",
+    "build:types": "cp src/types.d.ts dist/index.d.ts && cp src/adapter.d.ts dist/adapter.d.ts",
+    "prepublishOnly": "bun run build",
+    "cli": "bun run src/cli.ts",
+    "bench": "bun run src/bench.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit --project tsconfig.build.json"
+  },
+  "dependencies": {
+    "sql.js": "^1.12.0",
+    "just-bash": "^2.14.0"
+  },
+  "devDependencies": {
+    "@openfs/core": "workspace:*",
+    "@openfs/grep-optimizer": "workspace:*",
+    "@types/sql.js": "^1.4.9",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "openfs",
+    "virtual-filesystem",
+    "ai-agent",
+    "wasm",
+    "sqlite",
+    "fts5",
+    "grep",
+    "sandbox",
+    "llm",
+    "just-bash",
+    "in-browser"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/asdtransport/openfs",
+    "directory": "packages/wasm"
+  },
+  "homepage": "https://github.com/asdtransport/openfs/tree/main/packages/wasm#readme",
+  "author": "OpenFS Contributors",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "sideEffects": false
+}

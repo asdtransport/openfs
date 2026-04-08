@@ -1,0 +1,1621 @@
+---
+// OpenFS Agent Wiki — browser-local AI knowledge base
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenFS Wiki — AI Knowledge Base</title>
+  <script is:inline src="https://cdn.jsdelivr.net/npm/sql.js-fts5/dist/sql-wasm.js"></script>
+  <script is:inline src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0d14;
+      --surface:      #13131f;
+      --surface2:     #1a1a2a;
+      --border:       #1f1f35;
+      --border2:      #2a2a45;
+      --text:         #e2e2ef;
+      --muted:        #5a5a7a;
+      --accent:       #7c5cfc;
+      --accent-dim:   #4a35b0;
+      --green:        #4ade80;
+      --red:          #f87171;
+      --yellow:       #fbbf24;
+      --cyan:         #22d3ee;
+      --orange:       #fb923c;
+      --sidebar-w:    260px;
+      --query-w:      320px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ──────────────────────────────────────────── */
+    .topbar {
+      height: 52px;
+      padding: 0 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+
+    .topbar-logo {
+      font-size: 0.95rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .badge {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 9999px;
+      background: var(--accent-dim);
+      color: #c4b5fd;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .topbar-sep { width: 1px; height: 20px; background: var(--border2); margin: 0 0.25rem; }
+
+    .topbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+    .btn {
+      padding: 0.35rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.35; cursor: default; }
+    .btn-primary  { background: var(--accent); color: white; }
+    .btn-ghost    { background: transparent; border: 1px solid var(--border2); color: var(--text); }
+    .btn-danger   { background: #7f1d1d; color: var(--red); border: 1px solid #991b1b; }
+    .btn-sm       { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+
+    .stat-pill {
+      font-size: 0.72rem;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+    .stat-pill .val { color: var(--green); font-weight: 600; }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .layout-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr var(--query-w);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Terminal panel ───────────────────────────────────── */
+    .terminal-panel {
+      height: 260px;
+      border-top: 1px solid var(--border2);
+      background: #0a0a0f;
+      display: none;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .terminal-panel.open { display: flex; }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.3rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .terminal-bar-title { font-size: 0.72rem; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; flex: 1; }
+    .terminal-output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem 0.75rem;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .terminal-output .t-line { white-space: pre-wrap; word-break: break-all; }
+    .terminal-output .t-prompt { color: var(--accent); }
+    .terminal-output .t-stdout { color: var(--text); }
+    .terminal-output .t-stderr { color: var(--red); }
+    .terminal-output .t-info   { color: var(--muted); font-style: italic; }
+    .terminal-input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .terminal-prompt-sym { color: var(--accent); font-family: monospace; font-size: 0.82rem; font-weight: 700; }
+    .terminal-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+    }
+    .terminal-input::placeholder { color: var(--muted); }
+
+    /* ── Sidebar ──────────────────────────────────────────── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar-section + .sidebar-section {
+      border-top: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.6rem 0.75rem 0.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .sidebar-scroll {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 60px;
+      max-height: 200px;
+    }
+
+    .tree-item {
+      padding: 0.3rem 0.75rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      transition: background 0.1s, color 0.1s;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-item:hover { background: var(--surface2); color: var(--text); }
+    .tree-item.active { background: rgba(124, 92, 252, 0.15); color: var(--accent); }
+
+    .tree-item .icon { flex-shrink: 0; font-size: 0.85rem; }
+    .tree-item .name { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+    .tree-item .size { color: var(--muted); font-size: 0.68rem; flex-shrink: 0; }
+
+    .empty-state {
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Main content ─────────────────────────────────────── */
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .main-toolbar {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      background: var(--surface);
+      min-height: 44px;
+    }
+
+    .main-toolbar .page-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .main-toolbar .page-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 2px;
+    }
+    .view-tab {
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      border-radius: 4px;
+      color: var(--muted);
+      border: none;
+      background: transparent;
+      transition: all 0.15s;
+    }
+    .view-tab.active { background: var(--accent); color: white; }
+
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+    }
+
+    /* Markdown rendering */
+    .md-body { max-width: 72ch; }
+    .md-body h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text); }
+    .md-body h2 { font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 0.5rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    .md-body h3 { font-size: 0.95rem; font-weight: 600; margin: 1rem 0 0.3rem; color: var(--cyan); }
+    .md-body p  { margin-bottom: 0.75rem; line-height: 1.7; font-size: 0.88rem; color: #c8c8e0; }
+    .md-body ul, .md-body ol { margin: 0.5rem 0 0.75rem 1.25rem; }
+    .md-body li { font-size: 0.88rem; line-height: 1.6; color: #c8c8e0; margin-bottom: 0.2rem; }
+    .md-body code { font-family: monospace; font-size: 0.82rem; background: var(--surface2); padding: 0.1rem 0.35rem; border-radius: 3px; color: var(--cyan); }
+    .md-body pre  { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; overflow-x: auto; margin: 0.75rem 0; }
+    .md-body pre code { background: none; padding: 0; color: var(--text); }
+    .md-body blockquote { border-left: 3px solid var(--accent); padding: 0.25rem 0.75rem; margin: 0.75rem 0; color: var(--muted); font-style: italic; }
+    .md-body a { color: var(--accent); text-decoration: none; }
+    .md-body a:hover { text-decoration: underline; }
+    .md-body hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+    .md-body strong { color: var(--text); }
+    .md-body table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.82rem; }
+    .md-body th { background: var(--surface2); padding: 0.4rem 0.75rem; text-align: left; border: 1px solid var(--border2); color: var(--cyan); }
+    .md-body td { padding: 0.35rem 0.75rem; border: 1px solid var(--border); color: #c8c8e0; }
+
+    /* Editor */
+    .editor-area {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      resize: none;
+      padding: 1.5rem 2rem;
+    }
+
+    /* Empty/welcome state */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .welcome h2 { font-size: 1.1rem; color: var(--text); }
+    .welcome p  { font-size: 0.82rem; max-width: 36ch; line-height: 1.5; }
+
+    /* ── Query / AI panel ─────────────────────────────────── */
+    .query-panel {
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* LLM config */
+    .llm-config {
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      background: var(--surface2);
+    }
+
+    .llm-config label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .llm-select, .llm-input {
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 0.3rem 0.5rem;
+      color: var(--text);
+      font-size: 0.78rem;
+      width: 100%;
+    }
+    .llm-select:focus, .llm-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+    /* Chat messages */
+    .chat-msg {
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+    .chat-msg.user   { background: rgba(124, 92, 252, 0.12); border: 1px solid rgba(124, 92, 252, 0.2); }
+    .chat-msg.answer { background: var(--surface2); border: 1px solid var(--border2); }
+    .chat-msg.system { background: transparent; border: 1px solid var(--border); color: var(--muted); font-style: italic; font-size: 0.72rem; }
+    .chat-msg.error  { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); color: var(--red); }
+
+    .citation-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.35rem;
+    }
+    .citation {
+      font-size: 0.68rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      background: rgba(124, 92, 252, 0.1);
+      border: 1px solid rgba(124, 92, 252, 0.2);
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .citation:hover { background: rgba(124, 92, 252, 0.2); }
+
+    /* Markdown inside chat answers */
+    .chat-md { font-size: inherit; line-height: 1.6; }
+    .chat-md p { margin: 0 0 0.5rem; }
+    .chat-md p:last-child { margin-bottom: 0; }
+    .chat-md h1,.chat-md h2,.chat-md h3 { font-weight: 600; margin: 0.75rem 0 0.25rem; color: var(--text); }
+    .chat-md h1 { font-size: 1rem; }
+    .chat-md h2 { font-size: 0.9rem; }
+    .chat-md h3 { font-size: 0.82rem; color: var(--muted); }
+    .chat-md ul,.chat-md ol { padding-left: 1.25rem; margin: 0.25rem 0 0.5rem; }
+    .chat-md li { margin-bottom: 0.2rem; }
+    .chat-md code { font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 0.78rem; background: rgba(124,92,252,0.1); padding: 0.1rem 0.3rem; border-radius: 3px; color: var(--cyan); }
+    .chat-md pre { background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; overflow-x: auto; }
+    .chat-md pre code { background: none; padding: 0; color: var(--text); font-size: 0.75rem; }
+    .chat-md strong { color: var(--text); font-weight: 600; }
+    .chat-md a { color: var(--accent); text-decoration: none; }
+    .chat-md a:hover { text-decoration: underline; }
+    .chat-md blockquote { border-left: 3px solid var(--accent-dim); padding-left: 0.75rem; color: var(--muted); margin: 0.5rem 0; }
+
+    /* Query input */
+    .query-footer {
+      padding: 0.6rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.4rem;
+      flex-shrink: 0;
+    }
+
+    .query-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 0.4rem 0.6rem;
+      color: var(--text);
+      font-size: 0.8rem;
+      outline: none;
+      resize: none;
+      font-family: inherit;
+      line-height: 1.4;
+      min-height: 36px;
+      max-height: 100px;
+    }
+    .query-input:focus { border-color: var(--accent); }
+
+    /* Lint panel */
+    .lint-issue {
+      border-radius: 6px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+    }
+
+    .lint-type {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .lint-type.contradiction { background: rgba(248,113,113,0.15); color: var(--red); }
+    .lint-type.orphan        { background: rgba(251,191,36,0.15);  color: var(--yellow); }
+    .lint-type.stale         { background: rgba(251,146,60,0.15);  color: var(--orange); }
+    .lint-type.todo          { background: rgba(34,211,238,0.15);  color: var(--cyan); }
+    .lint-type.missing-citation { background: rgba(74,222,128,0.12); color: var(--green); }
+
+    /* Progress / toast */
+    .toast {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      max-width: 360px;
+    }
+    .toast.show { opacity: 1; transform: none; }
+    .toast.success { border-color: rgba(74,222,128,0.4); color: var(--green); }
+    .toast.error   { border-color: rgba(248,113,113,0.4); color: var(--red); }
+    .toast.info    { border-color: rgba(124,92,252,0.4);  color: #c4b5fd; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* Drop overlay */
+    .drop-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(124, 92, 252, 0.12);
+      border: 3px dashed var(--accent);
+      border-radius: 12px;
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: var(--accent);
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .drop-overlay.show { display: flex; }
+  </style>
+</head>
+<body>
+
+  <!-- Drop overlay -->
+  <div class="drop-overlay" id="drop-overlay">Drop files to ingest as sources</div>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <span>OpenFS</span>
+      <span class="badge">Wiki</span>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" id="btn-ingest-file" disabled>+ Ingest source</button>
+      <button class="btn btn-ghost" id="btn-new-page" disabled>+ New page</button>
+      <button class="btn btn-ghost" id="btn-lint" disabled>Lint wiki</button>
+      <button class="btn btn-ghost" id="btn-github" disabled title="Load GitHub repo as sources">Load repo</button>
+    </div>
+    <div class="topbar-right">
+      <span class="stat-pill">Sources: <span class="val" id="stat-sources">0</span></span>
+      <span class="stat-pill">Pages: <span class="val" id="stat-pages">0</span></span>
+      <span class="stat-pill" id="stat-status" style="color:var(--yellow)">booting…</span>
+      <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.25rem 0.6rem;color:var(--muted)" onclick="clearWiki()" title="Wipe IndexedDB and start fresh">Clear all</button>
+      <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.25rem 0.6rem;color:var(--muted)" onclick="toggleTerminal()" id="btn-terminal">Terminal</button>
+    </div>
+  </div>
+
+  <!-- Layout + Terminal -->
+  <div class="layout-wrap">
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Sources -->
+      <div class="sidebar-section" style="flex:0 0 auto">
+        <div class="sidebar-title">
+          Sources
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <span id="sources-count" style="color:var(--muted)">0</span>
+            <button class="btn btn-ghost btn-sm" style="padding:0.1rem 0.4rem;font-size:0.65rem" title="Synthesize all sources into wiki" onclick="synthesizeAll()">↻ all</button>
+          </div>
+        </div>
+        <div class="sidebar-scroll" id="sources-list">
+          <div class="empty-state">No sources yet</div>
+        </div>
+      </div>
+
+      <!-- Wiki pages -->
+      <div class="sidebar-section" style="flex:1;min-height:0">
+        <div class="sidebar-title">
+          Wiki Pages
+          <span id="pages-count" style="color:var(--muted)">0</span>
+        </div>
+        <div class="sidebar-scroll" style="max-height:none;flex:1">
+          <div id="pages-list">
+            <div class="empty-state">No wiki pages yet — ingest a source to get started</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="main">
+      <div class="main-toolbar" id="main-toolbar">
+        <span class="page-title" id="page-title" style="color:var(--muted)">Select a page</span>
+        <div id="toolbar-actions" style="display:none;align-items:center;gap:0.5rem">
+          <span class="page-meta" id="page-meta"></span>
+          <div class="view-tabs">
+            <button class="view-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
+            <button class="view-tab" id="tab-edit" onclick="switchTab('edit')">Edit</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-save" style="display:none" onclick="savePage()">Save</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePage()">Delete</button>
+        </div>
+      </div>
+
+      <div class="content-area" id="content-area">
+        <div class="welcome" id="welcome">
+          <div style="font-size:2rem">📖</div>
+          <h2>OpenFS Agent Wiki</h2>
+          <p>Ingest documents → AI synthesizes a persistent knowledge base → search, grep, and query it.</p>
+          <p style="margin-top:0.5rem;color:var(--accent)">Drop files here or click "+ Ingest source"</p>
+        </div>
+        <div class="md-body" id="md-body" style="display:none"></div>
+        <textarea class="editor-area" id="editor" style="display:none" spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <!-- Query panel -->
+    <div class="query-panel">
+      <div class="panel-header">
+        AI Assistant
+        <span id="llm-indicator" style="color:var(--muted);font-size:0.68rem;font-weight:400">not configured</span>
+      </div>
+
+      <!-- LLM config -->
+      <div style="padding:0.6rem;border-bottom:1px solid var(--border);flex-shrink:0">
+        <div class="llm-config">
+          <label>Provider</label>
+          <select class="llm-select" id="llm-provider" onchange="onProviderChange()">
+            <option value="claude">Anthropic Claude</option>
+            <option value="openai">OpenAI</option>
+            <option value="custom">Custom / OpenAI-compatible</option>
+          </select>
+          <label>Model</label>
+          <input class="llm-input" id="llm-model" placeholder="claude-haiku-4-5-20251001" />
+          <label>API Key</label>
+          <input class="llm-input" id="llm-key" type="password" placeholder="sk-ant-..." autocomplete="off" />
+          <div id="llm-baseurl-row" style="display:none">
+            <label>Base URL</label>
+            <input class="llm-input" id="llm-baseurl" placeholder="http://localhost:11434" />
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="configureLlm()" style="margin-top:0.25rem">Connect LLM</button>
+        </div>
+      </div>
+
+      <!-- Chat history -->
+      <div class="panel-body" id="chat-body"></div>
+
+      <!-- Query input -->
+      <div class="query-footer">
+        <textarea
+          class="query-input"
+          id="query-input"
+          placeholder="Ask the wiki anything…"
+          rows="1"
+          disabled
+        ></textarea>
+        <button class="btn btn-primary btn-sm" id="btn-query" onclick="sendQuery()" disabled>Ask</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal panel -->
+  <div class="terminal-panel" id="terminal-panel">
+    <div class="terminal-bar">
+      <span class="terminal-bar-title">TERMINAL — OpenFS WASM Shell</span>
+      <span style="font-size:0.68rem;color:var(--muted)">ls, cat, grep, find, stat, head — all run against your wiki data</span>
+      <button class="btn btn-ghost btn-sm" onclick="termClear()">Clear</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTerminal()">✕</button>
+    </div>
+    <div class="terminal-output" id="terminal-output"></div>
+    <div class="terminal-input-row">
+      <span class="terminal-prompt-sym">$</span>
+      <input class="terminal-input" id="terminal-input" placeholder="ls / · cat /wiki/backend-deployment-guide.md · grep -r deploy /wiki" autocomplete="off" spellcheck="false" />
+    </div>
+  </div>
+  </div><!-- /layout-wrap -->
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Hidden file input -->
+  <input type="file" id="file-input" multiple style="display:none" />
+  <input type="file" id="folder-input" webkitdirectory multiple style="display:none" />
+
+  <!-- GitHub modal -->
+  <div id="gh-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.25rem;width:340px;display:flex;flex-direction:column;gap:0.6rem">
+      <strong style="font-size:0.9rem">Load GitHub repo as sources</strong>
+      <input id="gh-repo" class="llm-input" placeholder="owner/repo" />
+      <input id="gh-branch" class="llm-input" placeholder="branch (default: main)" />
+      <input id="gh-token" class="llm-input" type="password" placeholder="GitHub token (optional)" />
+      <div style="display:flex;gap:0.5rem;margin-top:0.25rem">
+        <button class="btn btn-primary" style="flex:1" onclick="loadGithubRepo()">Load</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('gh-modal').style.display='none'">Cancel</button>
+      </div>
+      <div id="gh-progress" style="font-size:0.75rem;color:var(--muted)"></div>
+    </div>
+  </div>
+
+  <script>
+    import { createAgentFs } from "@openfs/wasm";
+    import { AgentWiki, createClaudeAdapter, createOpenAiAdapter, createCustomAdapter } from "@openfs/agent-wiki";
+
+    // ── State ────────────────────────────────────────────────────────────────────
+    let fs   = null;
+    let wiki = null;
+    let llm  = null;
+    let currentPage = null;
+    let isDirty = false;
+    let toastTimer;
+
+    // ── IndexedDB persistence — binary SQLite snapshot ────────────────────────────
+    const IDB_NAME  = "openfs-wiki-v9";
+    const IDB_STORE = "kv";
+    const IDB_KEY   = "db";
+
+    function idbOpen() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror   = () => reject(req.error);
+        req.onblocked = () => reject(new Error("IDB blocked"));
+      });
+    }
+
+    async function idbLoad() {
+      try {
+        const db  = await idbOpen();
+        const raw = await new Promise((resolve, reject) => {
+          const tx  = db.transaction(IDB_STORE, "readonly");
+          const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+          req.onsuccess = () => resolve(req.result ?? null);
+          req.onerror   = () => reject(req.error);
+        });
+        db.close();
+        if (!raw) { console.log("[idbLoad] null — no snapshot"); return null; }
+        const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+        console.log(`[idbLoad] ${bytes.byteLength} bytes, type=${raw?.constructor?.name}`);
+        // Fingerprint first 3 data pages to verify content
+        for (const offset of [4096, 8192, 12288]) {
+          if (bytes.byteLength > offset + 8) {
+            console.log(`[idbLoad] bytes[${offset}..${offset+7}]:`, Array.from(bytes.slice(offset, offset+8)));
+          }
+        }
+        return bytes;
+      } catch (e) {
+        console.warn("[idbLoad] failed:", e);
+        return null;
+      }
+    }
+
+    async function idbSave(label = "?") {
+      if (!fs) return;
+      try {
+        const stats = fs.stats();
+        const sqlCount = fs.query("SELECT COUNT(*) as c FROM files");
+        console.log(`[idbSave:${label}] stats.fileCount=${stats.fileCount} sql_count=${JSON.stringify(sqlCount)}`);
+        if (stats.fileCount === 0) {
+          console.log(`[idbSave:${label}] skipping — no files`);
+          return;
+        }
+        // Strip FTS5 before export — db.export() corrupts FTS5 in sql.js-fts5
+        try {
+          fs.run("DROP TABLE IF EXISTS files_fts");
+          fs.run("DROP TRIGGER IF EXISTS files_ai");
+          fs.run("DROP TRIGGER IF EXISTS files_au");
+          fs.run("DROP TRIGGER IF EXISTS files_ad");
+        } catch { /* no FTS5 */ }
+        const data = fs.export();
+        // Recreate FTS5 immediately so current session keeps working
+        try {
+          fs.run(`CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(path, content, content='files', content_rowid='rowid')`);
+          fs.run(`CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN INSERT INTO files_fts(rowid,path,content) VALUES(new.rowid,new.path,new.content); END`);
+          fs.run(`CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN INSERT INTO files_fts(files_fts,rowid,path,content) VALUES('delete',old.rowid,old.path,old.content); INSERT INTO files_fts(rowid,path,content) VALUES(new.rowid,new.path,new.content); END`);
+          fs.run(`CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN INSERT INTO files_fts(files_fts,rowid,path,content) VALUES('delete',old.rowid,old.path,old.content); END`);
+          fs.run(`INSERT INTO files_fts(files_fts) VALUES('rebuild')`);
+        } catch { /* no FTS5 */ }
+        console.log(`[idbSave:${label}] export bytes:${data.byteLength} type:${data?.constructor?.name}`);
+        // Fingerprint to confirm data pages are populated
+        for (const offset of [4096, 8192, 12288]) {
+          if (data.byteLength > offset + 8) {
+            console.log(`[idbSave:${label}] bytes[${offset}..${offset+7}]:`, Array.from(data.slice(offset, offset+8)));
+          }
+        }
+        const db = await idbOpen();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.objectStore(IDB_STORE).put(data, IDB_KEY);
+          tx.oncomplete = resolve;
+          tx.onerror    = () => reject(tx.error);
+        });
+        db.close();
+        console.log(`[idbSave:${label}] ✓ stored ${data.byteLength} bytes`);
+        const el = document.getElementById("stat-status");
+        const prev = el.textContent;
+        el.textContent = "saved ✓";
+        el.style.color = "var(--green)";
+        setTimeout(() => {
+          el.textContent = prev.startsWith("saved") ? "ready" : prev;
+          el.style.color = "var(--green)";
+        }, 1200);
+      } catch (e) {
+        console.error("[idbSave] failed:", e);
+        showToast("Save failed: " + e.message, "error");
+      }
+    }
+
+    async function idbClear() {
+      try {
+        const db = await idbOpen();
+        await new Promise((resolve) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.objectStore(IDB_STORE).delete(IDB_KEY);
+          tx.oncomplete = resolve;
+        });
+        db.close();
+        console.log("[idbClear] cleared");
+      } catch (e) { console.warn("[idbClear]", e); }
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────────────────────
+    setStatus("loading…", "yellow");
+    try {
+      const savedBytes = await idbLoad();
+      let initialData;
+      if (savedBytes) {
+        initialData = savedBytes;
+        console.log("[boot] passing initialData to createAgentFs, bytes:", initialData.byteLength);
+      } else {
+        console.log("[boot] no snapshot — fresh db");
+      }
+
+      fs = await createAgentFs({
+        wasmPath: "https://cdn.jsdelivr.net/npm/sql.js-fts5/dist/sql-wasm.wasm",
+        writable: true,
+        initialData,
+      });
+
+      // Full diagnostics after load
+      const stats    = fs.stats();
+      const tables   = fs.query("SELECT name FROM sqlite_master WHERE type='table' OR type='trigger' ORDER BY name");
+      const sqlCount = fs.query("SELECT COUNT(*) as c FROM files");
+      const paths    = fs.query("SELECT path FROM files ORDER BY path");
+      console.log("[boot] fs.stats():", stats);
+      console.log("[boot] sqlite_master entries:", tables.map(r => r.name));
+      console.log("[boot] SELECT COUNT(*) FROM files:", sqlCount);
+      console.log("[boot] file paths:", paths.map(r => r.path));
+
+      const hasData = stats.fileCount > 0;
+      setStatus(hasData ? `ready (${stats.fileCount} files)` : "ready (empty)", "green");
+      if (hasData) {
+        showToast(`Restored ${stats.fileCount} files from last session`, "success");
+        await refreshSidebarFromFs();
+      }
+      enableButtons();
+
+      // Restore LLM config from localStorage
+      try {
+        const saved = localStorage.getItem("openfs-wiki-llm");
+        if (saved) {
+          const { provider, apiKey, model, baseUrl } = JSON.parse(saved);
+          document.getElementById("llm-provider").value = provider || "claude";
+          document.getElementById("llm-key").value      = apiKey  || "";
+          document.getElementById("llm-model").value    = model   || "";
+          if (baseUrl) document.getElementById("llm-baseurl").value = baseUrl;
+          onProviderChange();
+          if (apiKey || provider === "custom") {
+            console.log("[boot] auto-connecting LLM:", provider);
+            configureLlm();
+          }
+        }
+      } catch (e) { console.warn("[boot] LLM restore failed:", e); }
+
+    } catch (e) {
+      console.error("[boot] error:", e);
+      setStatus("boot error: " + e.message, "red");
+    }
+
+    // ── UI helpers ───────────────────────────────────────────────────────────────
+    function setStatus(msg, color = "muted") {
+      const el = document.getElementById("stat-status");
+      el.textContent = msg;
+      el.style.color = `var(--${color})`;
+    }
+
+    function enableButtons() {
+      ["btn-ingest-file","btn-new-page","btn-lint","btn-github"].forEach(id => {
+        document.getElementById(id).disabled = false;
+      });
+    }
+
+    function showToast(msg, type = "info") {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.className = `toast show ${type}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove("show"), 3500);
+    }
+
+    function fmtSize(b) {
+      if (b < 1024) return b + "B";
+      if (b < 1024*1024) return (b/1024).toFixed(1) + "KB";
+      return (b/1024/1024).toFixed(1) + "MB";
+    }
+
+    // ── Refresh sidebar directly from fs (no LLM/wiki needed) ───────────────────
+    async function refreshSidebarFromFs() {
+      if (!fs) return;
+      const WIKI_SKIP = /(log|index|SCHEMA)\.md$/;
+
+      const [sourcePaths, wikiPaths] = await Promise.all([
+        fs.ls("/sources").catch(() => []),
+        fs.ls("/wiki").catch(() => []),
+      ]);
+
+      const sourceItems = sourcePaths.map(p => ({
+        path: p.startsWith("/") ? p : "/sources/" + p,
+        size: 0,
+        name: p.split("/").pop(),
+      }));
+
+      const pageItems = wikiPaths
+        .filter(p => p.endsWith(".md") && !WIKI_SKIP.test(p))
+        .map(p => ({
+          path: p.startsWith("/") ? p : "/wiki/" + p,
+          title: p.split("/").pop().replace(/\.md$/, "").replace(/-/g, " "),
+          size: 0,
+        }));
+
+      // Fetch sizes lazily
+      for (const s of sourceItems) {
+        try { const c = await fs.read(s.path); s.size = c.length; } catch {}
+      }
+      for (const p of pageItems) {
+        try { const c = await fs.read(p.path); p.size = c.length; } catch {}
+      }
+
+      renderSidebar(sourceItems, pageItems);
+    }
+
+    // ── Refresh sidebar ───────────────────────────────────────────────────────────
+    async function refreshSidebar() {
+      if (!wiki) { await refreshSidebarFromFs(); return; }
+
+      const [sources, pages] = await Promise.all([wiki.sources(), wiki.pages()]);
+      renderSidebar(sources, pages);
+    }
+
+    function renderSidebar(sources, pages) {
+      document.getElementById("stat-sources").textContent = sources.length;
+      document.getElementById("stat-pages").textContent = pages.length;
+      document.getElementById("sources-count").textContent = sources.length;
+      document.getElementById("pages-count").textContent = pages.length;
+
+      const sl = document.getElementById("sources-list");
+      if (sources.length === 0) {
+        sl.innerHTML = '<div class="empty-state">No sources yet</div>';
+      } else {
+        sl.innerHTML = sources.map(s => {
+          const safePath = s.path.replace(/'/g, "\\'");
+          const hasLlm = !!llm;
+          return `<div class="tree-item" style="padding-right:0.25rem" onclick="openSource('${safePath}')">
+            <span class="icon">📄</span>
+            <span class="name" title="${s.path}">${s.path.split("/").pop()}</span>
+            <span class="size">${fmtSize(s.size)}</span>
+            ${hasLlm ? `<button class="btn btn-ghost btn-sm" style="padding:0.1rem 0.35rem;font-size:0.65rem;flex-shrink:0;margin-left:0.25rem" title="Synthesize into wiki" onclick="event.stopPropagation();synthesizeSource('${safePath}')">↻</button>` : ""}
+          </div>`;
+        }).join("");
+      }
+
+      const pl = document.getElementById("pages-list");
+      if (pages.length === 0) {
+        pl.innerHTML = '<div class="empty-state">No wiki pages yet — ingest a source to get started</div>';
+      } else {
+        pl.innerHTML = pages.map(p => {
+          const safePath = p.path.replace(/'/g, "\\'");
+          const active   = currentPage?.path === p.path ? "active" : "";
+          return `<div class="tree-item ${active}" onclick="openPage('${safePath}')">
+            <span class="icon">📝</span>
+            <span class="name" title="${p.path}">${p.title}</span>
+            <span class="size">${fmtSize(p.size)}</span>
+          </div>`;
+        }).join("");
+      }
+    }
+
+    // ── Page viewer ───────────────────────────────────────────────────────────────
+    async function openPage(path) {
+      // Works with or without wiki — read directly from fs if needed
+      try {
+        const content = await fs.read(path);
+        currentPage = { path, title: path.split("/").pop().replace(/\.md$/, ""), content, size: content.length };
+        if (wiki) {
+          try { currentPage = await wiki.readPage(path); } catch {}
+        }
+        showPageContent(currentPage);
+        await refreshSidebar();
+      } catch (e) {
+        showToast("Could not open page: " + e.message, "error");
+      }
+    }
+
+    async function openSource(path) {
+      if (!fs) return;
+      const content = await fs.read(path);
+      currentPage = { path, title: path.split("/").pop(), content, size: content.length };
+      showPageContent(currentPage, true);
+    }
+
+    function showPageContent(page, readOnly = false) {
+      document.getElementById("welcome").style.display = "none";
+      document.getElementById("md-body").style.display = "block";
+      document.getElementById("editor").style.display = "none";
+      document.getElementById("page-title").textContent = page.title;
+      document.getElementById("page-title").style.color = "";
+      document.getElementById("page-meta").textContent = fmtSize(page.size);
+      document.getElementById("toolbar-actions").style.display = "flex";
+      document.getElementById("tab-edit").style.display = readOnly ? "none" : "";
+      renderMarkdown(page.content);
+      switchTab("preview");
+      isDirty = false;
+    }
+
+    function renderMarkdown(md) {
+      document.getElementById("md-body").innerHTML = marked.parse(md);
+    }
+
+    function switchTab(tab) {
+      const preview = document.getElementById("md-body");
+      const editor  = document.getElementById("editor");
+      const saveBtn = document.getElementById("btn-save");
+      document.getElementById("tab-preview").classList.toggle("active", tab === "preview");
+      document.getElementById("tab-edit").classList.toggle("active", tab === "edit");
+      if (tab === "preview") {
+        if (isDirty) renderMarkdown(editor.value);
+        preview.style.display = "block";
+        editor.style.display  = "none";
+        saveBtn.style.display = isDirty ? "inline-flex" : "none";
+      } else {
+        preview.style.display = "none";
+        editor.style.display  = "block";
+        editor.value = currentPage?.content ?? "";
+        saveBtn.style.display = "none";
+        editor.oninput = () => {
+          isDirty = true;
+          saveBtn.style.display = "inline-flex";
+        };
+      }
+    }
+
+    async function savePage() {
+      if (!wiki || !currentPage) return;
+      const content = document.getElementById("editor").value;
+      await wiki.writePage(currentPage.path, content);
+      currentPage.content = content;
+      isDirty = false;
+      document.getElementById("btn-save").style.display = "none";
+      showToast("Saved " + currentPage.path, "success");
+      await idbSave("savePage");
+      await refreshSidebar();
+    }
+
+    async function deletePage() {
+      if (!wiki || !currentPage) return;
+      if (!confirm(`Delete ${currentPage.path}?`)) return;
+      await wiki.deletePage(currentPage.path);
+      currentPage = null;
+      document.getElementById("welcome").style.display = "flex";
+      document.getElementById("md-body").style.display = "none";
+      document.getElementById("editor").style.display = "none";
+      document.getElementById("toolbar-actions").style.display = "none";
+      document.getElementById("page-title").textContent = "Select a page";
+      document.getElementById("page-title").style.color = "var(--muted)";
+      showToast("Page deleted", "info");
+      await idbSave("deletePage");
+      await refreshSidebar();
+    }
+
+    // ── LLM config ────────────────────────────────────────────────────────────────
+    function onProviderChange() {
+      const p = document.getElementById("llm-provider").value;
+      const models = { claude: "claude-haiku-4-5-20251001", openai: "gpt-4o-mini", custom: "" };
+      const keys   = { claude: "sk-ant-...", openai: "sk-...", custom: "(optional)" };
+      document.getElementById("llm-model").placeholder = models[p] || "";
+      document.getElementById("llm-key").placeholder   = keys[p]   || "";
+      document.getElementById("llm-baseurl-row").style.display = p === "custom" ? "block" : "none";
+    }
+
+    function configureLlm() {
+      const provider = document.getElementById("llm-provider").value;
+      const apiKey   = document.getElementById("llm-key").value.trim();
+      const model    = document.getElementById("llm-model").value.trim() || undefined;
+      const baseUrl  = document.getElementById("llm-baseurl").value.trim() || undefined;
+
+      if (provider !== "custom" && !apiKey) {
+        showToast("API key required", "error"); return;
+      }
+
+      if (provider === "claude") {
+        llm = createClaudeAdapter({ apiKey, model });
+      } else if (provider === "openai") {
+        llm = createOpenAiAdapter({ apiKey, model });
+      } else {
+        if (!baseUrl) { showToast("Base URL required for custom provider", "error"); return; }
+        llm = createCustomAdapter({ baseUrl, apiKey, model: model || "llama3" });
+      }
+
+      // Persist config so it survives page reload
+      localStorage.setItem("openfs-wiki-llm", JSON.stringify({ provider, apiKey, model: model || "", baseUrl: baseUrl || "" }));
+
+      // Init or reinit wiki with new llm
+      initWiki();
+    }
+
+    async function initWiki() {
+      if (!fs || !llm) return;
+      setStatus("initializing wiki…", "yellow");
+      try {
+        wiki = await AgentWiki.create(fs, llm);
+        const indicator = document.getElementById("llm-indicator");
+        const provider  = document.getElementById("llm-provider").value;
+        const model     = document.getElementById("llm-model").value || "default";
+        indicator.textContent = `${provider}/${model}`;
+        indicator.style.color = "var(--green)";
+
+        // Enable query
+        document.getElementById("query-input").disabled = false;
+        document.getElementById("btn-query").disabled = false;
+
+        setStatus("ready", "green");
+        await refreshSidebar();
+        addChatMsg("system", "Wiki ready. Ingest sources to build knowledge, then ask anything.");
+        showToast("LLM connected", "success");
+      } catch (e) {
+        setStatus("wiki error: " + e.message, "red");
+        showToast("Wiki init failed: " + e.message, "error");
+      }
+    }
+
+    // ── Synthesize existing sources through LLM ────────────────────────────────────
+    async function synthesizeSource(path) {
+      if (!wiki) { showToast("Connect LLM first", "error"); return; }
+      try {
+        const content = await fs.read(path);
+        setStatus("synthesizing…", "yellow");
+        showToast(`Synthesizing ${path.split("/").pop()}…`, "info");
+        const result = await wiki.ingest(path, content);
+        const total = result.pagesUpdated.length + result.pagesCreated.length;
+        showToast(`✓ ${path.split("/").pop()} → ${total} wiki page(s) updated`, "success");
+        setStatus("ready", "green");
+        await idbSave("synthesizeSource");
+        await refreshSidebar();
+      } catch (e) {
+        setStatus("ready", "green");
+        showToast("Synthesis error: " + e.message, "error");
+      }
+    }
+
+    async function synthesizeAll() {
+      if (!wiki) { showToast("Connect LLM first", "error"); return; }
+      const sourcePaths = await fs.ls("/sources").catch(() => []);
+      if (!sourcePaths.length) { showToast("No sources to synthesize", "info"); return; }
+      for (let i = 0; i < sourcePaths.length; i++) {
+        const p = sourcePaths[i].startsWith("/") ? sourcePaths[i] : "/sources/" + sourcePaths[i];
+        setStatus(`synthesizing ${i+1}/${sourcePaths.length}…`, "yellow");
+        await synthesizeSource(p);
+      }
+      setStatus("ready", "green");
+    }
+
+    // ── Ingest ────────────────────────────────────────────────────────────────────
+    document.getElementById("btn-ingest-file").addEventListener("click", () => {
+      document.getElementById("file-input").click();
+    });
+
+    document.getElementById("file-input").addEventListener("change", async (e) => {
+      await ingestFileList(e.target.files);
+      e.target.value = "";
+    });
+
+    async function ingestFileList(fileList) {
+      if (!fs) return;
+      const files = Array.from(fileList);
+      if (!files.length) return;
+
+      const SKIP = /\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|mp4|mp3|pdf|zip|gz|bin|exe)$/i;
+
+      setStatus("reading files…", "yellow");
+      const docs = {};
+      for (const f of files) {
+        if (SKIP.test(f.name) || f.size > 512*1024) continue;
+        const text = await f.text().catch(() => null);
+        if (text) docs["/" + f.name] = text;
+      }
+
+      if (!wiki || !llm) {
+        // No LLM — just ingest raw files into fs
+        await fs.ingest(docs);
+        await idbSave("ingest-noLlm");
+        setStatus(`ready (${Object.keys(docs).length} sources)`, "green");
+        showToast(`${Object.keys(docs).length} file(s) added to sources (configure LLM to synthesize wiki)`, "info");
+        if (!wiki) {
+          // Still create wiki object so sidebar works
+          wiki = { sources: async () => {
+            const paths = await fs.ls("/sources");
+            return paths.filter(p=>p.endsWith("") ).map(p=>({path:p,size:0}));
+          }, pages: async() => [], readPage: null, writePage: null, deletePage: null, query: null, lint: null };
+        }
+        await refreshSidebar();
+        return;
+      }
+
+      // LLM available — synthesize each file
+      const entries = Object.entries(docs);
+      for (let i = 0; i < entries.length; i++) {
+        const [path, content] = entries[i];
+        setStatus(`ingesting ${i+1}/${entries.length}…`, "yellow");
+        try {
+          const result = await wiki.ingest(path, content);
+          const total = result.pagesUpdated.length + result.pagesCreated.length;
+          showToast(`${path.split("/").pop()} → ${total} wiki page(s) updated`, "success");
+        } catch (e) {
+          showToast(`Error ingesting ${path}: ${e.message}`, "error");
+        }
+      }
+
+      setStatus("ready", "green");
+      await idbSave("ingest-llm");
+      await refreshSidebar();
+    }
+
+    // ── New page ──────────────────────────────────────────────────────────────────
+    document.getElementById("btn-new-page").addEventListener("click", async () => {
+      const name = prompt("Page name (e.g. my-topic):");
+      if (!name) return;
+      const path = `/wiki/${name.replace(/[^a-z0-9-]/gi, "-").toLowerCase()}.md`;
+      const content = `# ${name}\n\n`;
+      if (!wiki || !wiki.writePage) {
+        await fs.ingest({ [path]: content });
+      } else {
+        await wiki.writePage(path, content);
+      }
+      await idbSave("newPage");
+      await refreshSidebar();
+      await openPage(path);
+      switchTab("edit");
+    });
+
+    // ── Lint ──────────────────────────────────────────────────────────────────────
+    document.getElementById("btn-lint").addEventListener("click", async () => {
+      if (!wiki || !wiki.lint) { showToast("Configure LLM first", "error"); return; }
+      setStatus("linting…", "yellow");
+      addChatMsg("system", "Running wiki lint…");
+      try {
+        const result = await wiki.lint();
+        setStatus("ready", "green");
+        if (!result.issues.length) {
+          addChatMsg("system", "✓ Wiki looks clean — no issues found.");
+          showToast("Wiki looks clean!", "success");
+        } else {
+          addLintResults(result.issues);
+          showToast(`${result.issues.length} issue(s) found`, "info");
+        }
+      } catch (e) {
+        setStatus("ready", "green");
+        addChatMsg("error", "Lint error: " + e.message);
+        showToast("Lint error: " + e.message, "error");
+      }
+    });
+
+    function addLintResults(issues) {
+      const body = document.getElementById("chat-body");
+      const div  = document.createElement("div");
+      div.style.display = "flex";
+      div.style.flexDirection = "column";
+      div.style.gap = "0.35rem";
+      div.innerHTML = `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.2rem">${issues.length} issue(s)</div>` +
+        issues.map(i => `
+          <div class="lint-issue">
+            <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem">
+              <span class="lint-type ${i.type}">${i.type}</span>
+              <span style="font-size:0.68rem;color:var(--muted)">${i.page.split("/").pop()}</span>
+            </div>
+            ${i.description}
+          </div>`).join("");
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // ── Query ─────────────────────────────────────────────────────────────────────
+    document.getElementById("query-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendQuery();
+      }
+    });
+
+    async function sendQuery() {
+      if (!wiki || !wiki.query) { showToast("Configure LLM first", "error"); return; }
+      const input = document.getElementById("query-input");
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = "";
+
+      addChatMsg("user", q);
+      const spinner = addSpinner();
+
+      try {
+        // Log what FTS5 finds before the wiki query
+        const searchPaths = await fs.search(q);
+        console.log(`[search] query="${q}" → ${searchPaths.length} paths:`, searchPaths);
+        const wikiHits = searchPaths.filter(p => p.startsWith("/wiki"));
+        console.log(`[search] wiki hits: ${wikiHits.length}`, wikiHits);
+
+        const result = await wiki.query(q, { persist: false });
+        spinner.remove();
+        console.log("[wiki.query] citations:", result.citations);
+        addChatMsg("answer", result.answer, result.citations);
+      } catch (e) {
+        spinner.remove();
+        addChatMsg("error", "Error: " + e.message);
+      }
+    }
+
+    function addChatMsg(type, text, citations = []) {
+      const body = document.getElementById("chat-body");
+      const div  = document.createElement("div");
+      div.className = "chat-msg " + type;
+      // Render markdown for answer messages; plain text for system/error
+      if (type === "answer" && typeof marked !== "undefined") {
+        const md = document.createElement("div");
+        md.className = "chat-md";
+        md.innerHTML = marked.parse(text);
+        div.appendChild(md);
+      } else {
+        div.textContent = text;
+      }
+      if (citations.length) {
+        const row = document.createElement("div");
+        row.className = "citation-row";
+        row.style.cssText = "display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.5rem;align-items:center";
+        const label = document.createElement("span");
+        label.style.cssText = "font-size:0.65rem;color:var(--muted);margin-right:0.25rem";
+        label.textContent = "Sources:";
+        row.appendChild(label);
+        citations.forEach(c => {
+          const chip = document.createElement("span");
+          chip.className = "citation";
+          chip.style.cssText = "font-size:0.68rem;padding:0.1rem 0.45rem;border-radius:4px;background:rgba(124,92,252,0.1);border:1px solid rgba(124,92,252,0.2);color:#7c5cfc;cursor:pointer;white-space:nowrap";
+          chip.textContent = c.split("/").pop().replace(/\.md$/, "");
+          chip.title = c;
+          chip.onmouseenter = () => chip.style.background = "rgba(124,92,252,0.2)";
+          chip.onmouseleave = () => chip.style.background = "rgba(124,92,252,0.1)";
+          chip.onclick = () => openPage(c);
+          row.appendChild(chip);
+        });
+        div.appendChild(row);
+      }
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function addSpinner() {
+      const body = document.getElementById("chat-body");
+      const div  = document.createElement("div");
+      div.className = "chat-msg system";
+      div.innerHTML = '<div style="display:flex;align-items:center;gap:0.5rem"><div class="spinner"></div> Thinking…</div>';
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+      return div;
+    }
+
+    // ── GitHub repo loader ────────────────────────────────────────────────────────
+    document.getElementById("btn-github").addEventListener("click", () => {
+      document.getElementById("gh-modal").style.display = "flex";
+    });
+
+    async function loadGithubRepo() {
+      const repoArg  = document.getElementById("gh-repo").value.trim();
+      const branchIn = document.getElementById("gh-branch").value.trim() || "main";
+      const token    = document.getElementById("gh-token").value.trim();
+      const progress = document.getElementById("gh-progress");
+
+      if (!repoArg.includes("/")) { progress.textContent = "Format: owner/repo"; return; }
+      const [owner, repo] = repoArg.split("/");
+
+      const headers = token ? { Authorization: `token ${token}` } : {};
+
+      const tryBranch = async (branch) => {
+        const r = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
+          { headers }
+        );
+        return { res: r, branch };
+      };
+
+      progress.textContent = "Fetching tree…";
+      let { res, branch } = await tryBranch(branchIn);
+      if (!res.ok && branchIn === "main") {
+        progress.textContent = "'main' not found, trying 'master'…";
+        ({ res, branch } = await tryBranch("master"));
+      }
+      if (!res.ok) { progress.textContent = `Error ${res.status}`; return; }
+
+      const treeData = await res.json();
+      const SKIP_EXT  = /\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|mp4|mp3|pdf|zip|gz|bin|exe|pyc|so|dll|wasm|lock)$/i;
+      const SKIP_PATH = /\/(\.git|node_modules|dist|build|__pycache__)($|\/)/;
+      const blobs = treeData.tree.filter(i =>
+        i.type === "blob" && !SKIP_EXT.test(i.path) &&
+        !SKIP_PATH.test("/"+i.path) && (i.size||0) <= 256*1024 && (i.size||1) > 0
+      );
+
+      progress.textContent = `Fetching ${blobs.length} files…`;
+      let done = 0;
+      const docs = {};
+      for (let i = 0; i < blobs.length; i += 12) {
+        await Promise.all(blobs.slice(i, i+12).map(async item => {
+          try {
+            const r = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${item.path}`);
+            if (r.ok) {
+              const t = await r.text();
+              if (!t.includes("\0")) docs["/sources/"+item.path] = t;
+            }
+          } catch {}
+          done++;
+          if (done % 20 === 0) progress.textContent = `Fetched ${done}/${blobs.length}…`;
+        }));
+      }
+
+      progress.textContent = `Ingesting ${Object.keys(docs).length} files…`;
+
+      if (wiki && wiki.writePage) {
+        // Ingest directly into fs (synthesis happens per-file via ingest btn)
+        await fs.ingest(docs);
+        showToast(`${Object.keys(docs).length} source files loaded from ${owner}/${repo}`, "success");
+      } else {
+        await fs.ingest(docs);
+        showToast(`${Object.keys(docs).length} source files loaded. Configure LLM to synthesize.`, "info");
+      }
+
+      document.getElementById("gh-modal").style.display = "none";
+      progress.textContent = "";
+      setStatus("ready", "green");
+      await idbSave("loadGithubRepo");
+      await refreshSidebar();
+    }
+
+    // ── Drag and drop ─────────────────────────────────────────────────────────────
+    document.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      document.getElementById("drop-overlay").classList.add("show");
+    });
+    document.addEventListener("dragleave", (e) => {
+      if (!e.relatedTarget) document.getElementById("drop-overlay").classList.remove("show");
+    });
+    document.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      document.getElementById("drop-overlay").classList.remove("show");
+      const files = [];
+      const items = e.dataTransfer.items;
+      if (items) {
+        for (const item of items) {
+          if (item.kind === "file") files.push(item.getAsFile());
+        }
+      }
+      await ingestFileList(files);
+    });
+
+    async function clearWiki() {
+      if (!confirm("Clear all wiki data and start fresh?")) return;
+      await idbClear();
+      location.reload();
+    }
+
+    // ── Terminal ──────────────────────────────────────────────────────────────────
+    let termHistory = [];
+    let termHistIdx = -1;
+
+    function toggleTerminal() {
+      const panel = document.getElementById("terminal-panel");
+      const btn   = document.getElementById("btn-terminal");
+      const open  = panel.classList.toggle("open");
+      btn.style.color = open ? "var(--accent)" : "var(--muted)";
+      if (open) {
+        if (document.getElementById("terminal-output").children.length === 0) {
+          termPrint("info", "OpenFS WASM Shell — commands run against your wiki filesystem");
+          termPrint("info", 'Try: ls /  |  ls /wiki  |  cat /wiki/backend-deployment-guide.md  |  grep -r deploy /wiki');
+          termPrint("info", "─".repeat(60));
+        }
+        document.getElementById("terminal-input").focus();
+      }
+    }
+
+    function termClear() {
+      document.getElementById("terminal-output").innerHTML = "";
+    }
+
+    function termPrint(type, text) {
+      const out  = document.getElementById("terminal-output");
+      const line = document.createElement("div");
+      line.className = "t-line t-" + type;
+      line.style.cssText = type === "prompt" ? "color:#7c5cfc;margin-top:0.35rem"
+        : type === "stderr" ? "color:#f87171"
+        : type === "info"   ? "color:#5a5a7a;font-style:italic"
+        : "color:#e2e2ef";
+      line.textContent = text;
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    }
+
+    async function termRun(cmd) {
+      termPrint("prompt", "$ " + cmd);
+      if (!fs) { termPrint("stderr", "Error: filesystem not ready"); return; }
+      const trimmed = cmd.trim();
+      if (!trimmed) return;
+
+      // Built-in: clear
+      if (trimmed === "clear" || trimmed === "cls") { termClear(); return; }
+
+      // Built-in: help
+      if (trimmed === "help") {
+        termPrint("info", "Available: ls, cat, grep, find, head, stat, wc, pwd, echo");
+        termPrint("info", "Also: search <query>  — FTS5 full-text search");
+        return;
+      }
+
+      // Built-in: search (FTS5)
+      if (trimmed.startsWith("search ")) {
+        const q = trimmed.slice(7).trim();
+        const results = await fs.search(q);
+        if (!results.length) { termPrint("stdout", "(no results)"); }
+        else results.forEach(p => termPrint("stdout", p));
+        return;
+      }
+
+      // Everything else — run through WASM shell
+      try {
+        const result = await fs.exec(trimmed);
+        if (result.stdout) result.stdout.split("\n").forEach(l => termPrint("stdout", l));
+        if (result.stderr) result.stderr.split("\n").forEach(l => termPrint("stderr", l));
+        if (result.exitCode !== 0 && !result.stdout && !result.stderr) {
+          termPrint("stderr", `exit code ${result.exitCode}`);
+        }
+      } catch (e) {
+        termPrint("stderr", "Error: " + e.message);
+      }
+    }
+
+    document.getElementById("terminal-input").addEventListener("keydown", async (e) => {
+      const input = document.getElementById("terminal-input");
+      if (e.key === "Enter") {
+        const cmd = input.value;
+        if (cmd.trim()) { termHistory.unshift(cmd); termHistIdx = -1; }
+        input.value = "";
+        await termRun(cmd);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (termHistIdx < termHistory.length - 1) {
+          termHistIdx++;
+          input.value = termHistory[termHistIdx];
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (termHistIdx > 0) { termHistIdx--; input.value = termHistory[termHistIdx]; }
+        else { termHistIdx = -1; input.value = ""; }
+      }
+    });
+
+    // ── Expose to window (Vite modules are scoped; inline onclick needs globals) ──
+    Object.assign(window, {
+      configureLlm,
+      onProviderChange,
+      switchTab,
+      savePage,
+      deletePage,
+      sendQuery,
+      loadGithubRepo,
+      openPage,
+      openSource,
+      clearWiki,
+      synthesizeSource,
+      synthesizeAll,
+      toggleTerminal,
+      termClear,
+    });
+  </script>
+</body>
+</html>

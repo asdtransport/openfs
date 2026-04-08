@@ -1,0 +1,1 @@
+{"version":3,"file":"sqlite.d.ts","sourceRoot":"","sources":["sqlite.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,wBAAgB,aAAa,CAAC,OAAO,EAAE,MAAM,EAAE,WAAW,UAAQ,GAAG,MAAM,CAa1E;AAED,wBAAgB,aAAa,CAC3B,OAAO,EAAE,MAAM,EACf,UAAU,UAAQ,GACjB;IAAE,KAAK,EAAE,MAAM,CAAC;IAAC,MAAM,EAAE,MAAM,EAAE,CAAA;CAAE,CAerC"}

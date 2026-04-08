@@ -1,0 +1,17 @@
+{
+  "name": "@openfs/cli",
+  "version": "0.1.0",
+  "description": "OpenFS command-line tool — ls, cat, grep, ask, ingest, pull, push, shell",
+  "type": "module",
+  "bin": {
+    "openfs": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile ../../bin/openfs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT"
+}

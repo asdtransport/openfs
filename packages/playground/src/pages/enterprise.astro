@@ -1,0 +1,643 @@
+---
+import AppShell from '../components/AppShell.astro';
+---
+<AppShell title="Dashboard" active="dashboard">
+
+  <slot slot="topbar-actions">
+    <div class="status-pill"><span class="status-dot" id="status-dot"></span><span id="status-text">Connecting...</span></div>
+    <button class="btn btn-ghost-dark" onclick="doSync('pull')">Pull MW</button>
+    <button class="btn btn-gold" onclick="doSync('push')">Push All</button>
+  </slot>
+
+  <!-- Main content + Chat side by side -->
+  <div class="main-area">
+    <div class="content" style="padding:1.5rem 1.75rem">
+
+      <!-- Dashboard view -->
+      <div id="view-dashboard" class="view active">
+        <div class="page-header">
+          <div class="page-title">Knowledge Dashboard</div>
+          <div class="page-sub" id="last-sync-text">Loading...</div>
+        </div>
+
+        <div class="stats-grid stats-4">
+          <div class="stat-card" style="color:var(--navy)"><div class="stat-val" id="stat-synth">—</div><div class="stat-lbl">Synthesized Pages</div></div>
+          <div class="stat-card" style="color:var(--navy)"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Total Pages</div></div>
+          <div class="stat-card" style="color:var(--gold)"><div class="stat-val" id="stat-linked">—</div><div class="stat-lbl">Linked to MediaWiki</div></div>
+          <div class="stat-card" style="color:var(--green)"><div class="stat-val" id="stat-mwonly">—</div><div class="stat-lbl">MW Only</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="chat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+            <span class="card-title">Agent Activity</span>
+            <div class="card-head-right"><a href="#" onclick="showView('recent')" style="font-size:0.75rem;color:var(--navy);text-decoration:none">View all</a></div>
+          </div>
+          <div id="agent-activity"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Recent Changes</span>
+            <div class="card-head-right">
+              <button class="btn btn-outline btn-sm" onclick="loadRecent()">Refresh</button>
+              <a href="#" onclick="showView('recent')" style="font-size:0.75rem;color:var(--navy);text-decoration:none">View all</a>
+            </div>
+          </div>
+          <div id="recent-overview"><div class="empty"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+
+      <!-- Articles view -->
+      <div id="view-pages" class="view">
+        <div class="page-header" style="display:flex;align-items:baseline;gap:1rem">
+          <div><div class="page-title">Articles</div><div class="page-sub">Synthesized knowledge pages in OpenFS</div></div>
+          <div style="margin-left:auto"><a href="/editor" class="btn btn-gold btn-sm">New Article</a></div>
+        </div>
+        <div class="card">
+          <table class="data-table">
+            <thead><tr><th>Title</th><th>Size</th><th>Type</th><th>Actions</th></tr></thead>
+            <tbody id="pages-tbody"><tr><td colspan="4"><div class="empty"><span class="spinner"></span></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent view -->
+      <div id="view-recent" class="view">
+        <div class="page-header">
+          <div class="page-title">Recent Changes</div>
+          <div class="page-sub">Latest edits across MediaWiki</div>
+        </div>
+        <div class="card"><div id="recent-full"><div class="empty"><span class="spinner"></span></div></div></div>
+      </div>
+
+      <!-- Map view -->
+      <div id="view-map" class="view">
+        <div class="page-header">
+          <div class="page-title">Link Map</div>
+          <div class="page-sub">OpenFS to MediaWiki sync status</div>
+        </div>
+        <div class="stats-grid stats-3">
+          <div class="stat-card" style="color:var(--gold)"><div class="stat-val" id="map-linked">—</div><div class="stat-lbl">Linked</div></div>
+          <div class="stat-card" style="color:var(--navy)"><div class="stat-val" id="map-ofs">—</div><div class="stat-lbl">OpenFS Only</div></div>
+          <div class="stat-card" style="color:var(--green)"><div class="stat-val" id="map-mw">—</div><div class="stat-lbl">MW Only</div></div>
+        </div>
+        <div class="card"><div class="card-head"><span class="card-title">Linked Pages</span></div><div id="map-linked-list"><div class="empty"><span class="spinner"></span></div></div></div>
+        <div class="card"><div class="card-head"><span class="card-title">MediaWiki Only — not yet synthesized</span></div><div id="map-mw-list"><div class="empty"><span class="spinner"></span></div></div></div>
+      </div>
+
+      <!-- Ingest view -->
+      <div id="view-ingest" class="view">
+        <div class="page-header">
+          <div class="page-title">Ingest Content</div>
+          <div class="page-sub">Add documents to the knowledge base</div>
+        </div>
+
+        <!-- Embedding sync section -->
+        <div style="margin-bottom:1.25rem">
+          <div class="page-title" style="font-size:0.9rem;margin-bottom:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Embedding Sync</div>
+          <div class="form-grid">
+            <div class="card">
+              <div class="card-head">
+                <div class="chat-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg></div>
+                <span class="card-title">Embed Wiki Pages</span>
+              </div>
+              <div style="padding:1.1rem;display:flex;flex-direction:column;gap:0.65rem">
+                <div style="font-size:0.78rem;color:var(--muted)">Embed all OpenFS wiki pages into Chroma for semantic search. Run this after pulling from MediaWiki.</div>
+                <div style="display:flex;gap:0.5rem;align-items:center">
+                  <div class="form-field" style="flex:1;margin:0"><input class="form-input" id="embed-wiki-topic" placeholder="Topic tag (optional)" /></div>
+                  <button class="btn btn-navy" onclick="embedWiki()" id="embed-wiki-btn">Embed Wiki</button>
+                </div>
+                <div class="form-result" id="embed-wiki-result"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="chat-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                <span class="card-title">Embed S3 Bucket</span>
+              </div>
+              <div style="padding:1.1rem;display:flex;flex-direction:column;gap:0.65rem">
+                <div style="font-size:0.78rem;color:var(--muted)">Pull files from an S3/MinIO bucket, chunk, embed, and synthesize wiki pages.</div>
+                <div class="form-field"><label class="form-label">Bucket</label><input class="form-input" id="s3-bucket" placeholder="my-bucket" /></div>
+                <div style="display:flex;gap:0.5rem">
+                  <div class="form-field" style="flex:1"><label class="form-label">Prefix (optional)</label><input class="form-input" id="s3-prefix" placeholder="docs/" /></div>
+                  <div class="form-field" style="flex:1"><label class="form-label">Topic tag</label><input class="form-input" id="s3-topic" placeholder="docs" /></div>
+                </div>
+                <button class="btn btn-navy" style="justify-content:center" onclick="embedS3()" id="embed-s3-btn">Embed S3 Bucket</button>
+                <div class="form-result" id="embed-s3-result"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual ingest -->
+        <div style="margin-bottom:0.75rem">
+          <div class="page-title" style="font-size:0.9rem;margin-bottom:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Manual Ingest</div>
+          <div class="form-grid">
+            <div class="card">
+              <div class="card-head"><span class="card-title">From URL</span></div>
+              <div style="padding:1.1rem;display:flex;flex-direction:column;gap:0.65rem">
+                <div class="form-field"><label class="form-label">URL to fetch and synthesize</label><input class="form-input" id="ing-url" placeholder="https://..." type="url" /></div>
+                <button class="btn btn-navy" style="width:100%;justify-content:center" onclick="ingestUrl()">Fetch and Ingest</button>
+                <div class="form-result" id="ing-url-result"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><span class="card-title">From Text</span></div>
+              <div style="padding:1.1rem;display:flex;flex-direction:column;gap:0.65rem">
+                <div class="form-field"><label class="form-label">Title</label><input class="form-input" id="ing-title" placeholder="Document title" /></div>
+                <div class="form-field"><label class="form-label">Content</label><textarea class="form-textarea" id="ing-content" placeholder="Paste content here..."></textarea></div>
+                <button class="btn btn-navy" style="width:100%;justify-content:center" onclick="ingestText()">Ingest</button>
+                <div class="form-result" id="ing-text-result"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback view -->
+      <div id="view-feedback" class="view">
+        <div class="page-header">
+          <div class="page-title">Portal Feedback</div>
+          <div class="page-sub">Employee thumbs up/down on AI answers &mdash; use to tune retrieval and prompts</div>
+        </div>
+
+        <div class="stats-grid stats-3">
+          <div class="stat-card" style="color:var(--navy)"><div class="stat-val" id="fb-total">—</div><div class="stat-lbl">Total Votes</div></div>
+          <div class="stat-card" style="color:var(--green)"><div class="stat-val" id="fb-up">—</div><div class="stat-lbl">Thumbs Up</div></div>
+          <div class="stat-card" style="color:var(--red)"><div class="stat-val" id="fb-down">—</div><div class="stat-lbl">Thumbs Down</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-head">
+            <span class="card-title">Top Questions by Volume</span>
+            <div class="card-head-right">
+              <button class="btn btn-outline btn-sm" onclick="loadFeedback()">Refresh</button>
+            </div>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Question</th><th>Votes</th><th>Score</th></tr></thead>
+            <tbody id="fb-top-tbody"><tr><td colspan="3"><div class="empty">No feedback yet</div></td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="card-title">Recent Feedback</span></div>
+          <table class="data-table">
+            <thead><tr><th>Question</th><th>Vote</th><th>Collection</th><th>User</th><th>When</th></tr></thead>
+            <tbody id="fb-recent-tbody"><tr><td colspan="5"><div class="empty">No feedback yet</div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Chat panel -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <div class="chat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+        <div><div class="chat-title">OpenFS AI Assistant</div><div class="chat-sub">Powered by Claude + OpenFS</div></div>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg assistant">
+          <div class="bubble">
+            Hi Derek. Ask me anything — I use semantic search, wiki grep, and tool calling to answer with citations.
+            <div class="bubble-actions">
+              <button class="bubble-action" onclick="sendPreset('What pages are in the knowledge base?')">What pages exist?</button>
+              <button class="bubble-action" onclick="sendPreset('How does the OpenFS sync pipeline work?')">How does sync work?</button>
+              <button class="bubble-action" onclick="sendPreset('How does API key authentication work?')">API key auth?</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chat-footer">
+        <div class="chat-input-wrap">
+          <textarea class="chat-textarea" id="chat-input" placeholder="Type a message..." rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+          <button class="chat-send" id="send-btn" onclick="sendMsg()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+        <div class="chat-hint" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Enter to send · Shift+Enter for newline</span>
+          <label class="agent-toggle" title="Agent mode: uses tool-calling loop for ingest, expand, and complex actions">
+            <input type="checkbox" id="agent-mode-toggle">
+            <span>Agent mode</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</AppShell>
+
+<style>
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.65rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .activity-name { flex: 1; font-size: 0.81rem; font-weight: 500; }
+  .activity-tag { font-size: 0.68rem; color: var(--muted); }
+  .activity-status { font-size: 0.72rem; font-weight: 600; color: var(--green); }
+  .activity-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+</style>
+
+<script is:inline>
+  const API = location.protocol === 'https:' ? 'https://api.openfs.derekethandavis.com' : 'http://localhost:4322';
+  const MW  = 'https://mw.openfs.derekethandavis.com';
+
+  async function apiFetch(path, body, method) {
+    const m = method ?? (body !== undefined ? 'POST' : 'GET');
+    const opts = m === 'POST'
+      ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body ?? {}) }
+      : { method:'GET' };
+    return (await fetch(API + path, opts)).json();
+  }
+
+  // ── Views ──
+  let currentView = 'dashboard';
+  const viewLabels = { dashboard:'Dashboard', pages:'Articles', recent:'Recent Changes', map:'Link Map', ingest:'Ingest Content', feedback:'Feedback Analytics' };
+
+  function showView(view) {
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.getElementById('view-' + view)?.classList.add('active');
+    const bc = document.getElementById('breadcrumb-page');
+    if (bc) bc.textContent = viewLabels[view] ?? view;
+    currentView = view;
+    if (view === 'pages') loadPages();
+    else if (view === 'recent') loadRecentFull();
+    else if (view === 'map') loadMap();
+    else if (view === 'feedback') loadFeedback();
+  }
+
+  // Handle sidebar nav clicks
+  document.querySelectorAll('.nav-item').forEach(el => {
+    const onclick = el.getAttribute('onclick');
+    if (!onclick) el.addEventListener('click', e => {
+      const href = el.getAttribute('href');
+      if (href?.includes('view=')) {
+        e.preventDefault();
+        const v = new URLSearchParams(href.split('?')[1]).get('view');
+        if (v) showView(v);
+      }
+    });
+  });
+
+  const qv = new URLSearchParams(location.search).get('view');
+  if (qv) showView(qv);
+
+  // ── Status ──
+  async function loadStatus() {
+    try {
+      const d = await apiFetch('/status');
+      document.getElementById('status-dot').className = 'status-dot live';
+      document.getElementById('status-text').textContent = d.synthesizedCount + ' pages · ' + (d.lastSync ? new Date(d.lastSync).toLocaleTimeString() : 'never');
+      document.getElementById('last-sync-text').textContent = 'Last sync: ' + (d.lastSync ? new Date(d.lastSync).toLocaleString() : 'never') + ' · ' + d.mwUrl;
+      document.getElementById('stat-synth').textContent = d.synthesizedCount;
+    } catch { document.getElementById('status-text').textContent = 'Offline'; }
+  }
+
+  // ── Agent Activity ──
+  async function loadAgentActivity() {
+    const el = document.getElementById('agent-activity');
+    try {
+      const changes = await apiFetch('/recent-changes?limit=10');
+      const synth = changes.filter(c => c.type === 'synthesized');
+      if (!synth.length) { el.innerHTML = '<div class="empty">No recent agent activity</div>'; return; }
+      el.innerHTML = synth.map(c => {
+        const ts = timeAgo(new Date(c.timestamp));
+        const mwUrl = c.mwUrl ?? `${MW}/wiki/${encodeURIComponent(c.title.replace(/ /g,'_'))}`;
+        return `<div class="activity-item">
+          <span class="activity-dot"></span>
+          <span class="activity-name"><a href="${mwUrl}" target="_blank" style="color:var(--text);text-decoration:none">${c.title}</a></span>
+          <span class="activity-tag">LLM Synthesis</span>
+          <span class="activity-status">Completed</span>
+          <span class="activity-time">${ts}</span>
+        </div>`;
+      }).join('');
+    } catch { el.innerHTML = '<div class="empty">Error loading</div>'; }
+  }
+
+  function timeAgo(d) {
+    const s = Math.floor((Date.now()-d)/1000);
+    if (s<60) return s+'s ago'; if (s<3600) return Math.floor(s/60)+'m ago';
+    if (s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago';
+  }
+
+  // ── Feedback ──
+  async function loadFeedback() {
+    const token = localStorage.getItem('openfs_token') || '';
+    const authHdr = token ? { Authorization: `Bearer ${token}` } : {};
+
+    // Stats
+    try {
+      const res = await fetch(`${API}/portal/feedback/stats`, { headers: authHdr });
+      const data = await res.json();
+      const o = data.overall ?? {};
+      document.getElementById('fb-total').textContent = (o.total ?? 0).toLocaleString();
+      document.getElementById('fb-up').textContent   = (o.thumbs_up ?? 0).toLocaleString();
+      document.getElementById('fb-down').textContent = (o.thumbs_down ?? 0).toLocaleString();
+    } catch {}
+
+    // Top questions
+    try {
+      const res = await fetch(`${API}/portal/feedback/top?limit=20`, { headers: authHdr });
+      const rows = await res.json();
+      const tbody = document.getElementById('fb-top-tbody');
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = '<tr><td colspan="3"><div class="empty">No feedback yet</div></td></tr>';
+      } else {
+        tbody.innerHTML = rows.map(r => {
+          const score = r.score_pct ?? 0;
+          const color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
+          const bar = `<div style="display:flex;align-items:center;gap:0.5rem">
+            <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${score}%;height:100%;background:${color};border-radius:3px"></div>
+            </div>
+            <span style="font-size:0.72rem;font-weight:600;color:${color};width:32px;text-align:right">${score}%</span>
+          </div>`;
+          return `<tr>
+            <td style="font-size:0.82rem;max-width:400px;word-break:break-word">${esc(r.question)}</td>
+            <td style="font-size:0.82rem;color:var(--muted)">${r.votes}</td>
+            <td style="min-width:120px">${bar}</td>
+          </tr>`;
+        }).join('');
+      }
+    } catch {}
+
+    // Recent feedback
+    try {
+      const res = await fetch(`${API}/portal/feedback?limit=50`, { headers: authHdr });
+      const rows = await res.json();
+      const tbody = document.getElementById('fb-recent-tbody');
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty">No feedback yet</div></td></tr>';
+      } else {
+        tbody.innerHTML = rows.map(r => {
+          const voteHtml = r.vote === 1
+            ? '<span class="tag" style="background:var(--green-light);color:var(--green)">&#128077; Yes</span>'
+            : '<span class="tag" style="background:var(--red-light);color:var(--red)">&#128078; No</span>';
+          const when = new Date(r.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+          return `<tr>
+            <td style="font-size:0.78rem;max-width:320px;word-break:break-word">${esc(r.question)}</td>
+            <td>${voteHtml}</td>
+            <td style="font-size:0.75rem;color:var(--muted)">${esc(r.collection ?? '')}</td>
+            <td style="font-size:0.75rem;color:var(--muted)">${esc(r.username ?? '—')}</td>
+            <td style="font-size:0.72rem;color:var(--muted);white-space:nowrap">${when}</td>
+          </tr>`;
+        }).join('');
+      }
+    } catch {}
+  }
+
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── Recent ──
+  function changeRow(c) {
+    const ts = new Date(c.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const tag = c.type==='synthesized'?'<span class="tag tag-ai">AI</span>':c.type==='source'?'<span class="tag tag-source">Source</span>':'<span class="tag tag-human">Human</span>';
+    const url = c.mwUrl ?? `${MW}/wiki/${encodeURIComponent(c.title.replace(/ /g,'_'))}`;
+    return `<div class="list-item">${tag}<a href="${url}" target="_blank" class="list-title">${c.title}</a><span class="list-meta">${c.user}</span><span class="list-meta">${ts}</span></div>`;
+  }
+
+  async function loadRecent() {
+    const el = document.getElementById('recent-overview');
+    try { const d = await apiFetch('/recent-changes?limit=10'); el.innerHTML = d.length ? d.map(changeRow).join('') : '<div class="empty">No recent changes</div>'; }
+    catch { el.innerHTML = '<div class="empty">Error loading</div>'; }
+  }
+
+  async function loadRecentFull() {
+    const el = document.getElementById('recent-full');
+    try { const d = await apiFetch('/recent-changes?limit=50'); el.innerHTML = d.length ? d.map(changeRow).join('') : '<div class="empty">No recent changes</div>'; }
+    catch { el.innerHTML = '<div class="empty">Error loading</div>'; }
+  }
+
+  // ── Pages ──
+  async function loadPages() {
+    const tbody = document.getElementById('pages-tbody');
+    try {
+      const pages = await apiFetch('/pages');
+      document.getElementById('stat-total').textContent = pages.length;
+      const sb = document.getElementById('sb-page-count');
+      if (sb) sb.textContent = pages.length;
+      tbody.innerHTML = pages.map(p => {
+        const kb = (p.size/1024).toFixed(1);
+        return `<tr>
+          <td><span class="tbl-link" onclick="editPage('${p.path}','${p.title.replace(/'/g,"\\'")}')"> ${p.title}</span></td>
+          <td style="color:var(--muted)">${kb} kb</td>
+          <td><span class="tag tag-ai">AI</span></td>
+          <td class="tbl-actions">
+            <a href="${MW}/wiki/${encodeURIComponent(p.title.replace(/ /g,'_'))}" target="_blank" class="btn btn-outline btn-sm">View in Wiki</a>
+            <button class="btn btn-outline btn-sm" onclick="pushPage('${p.path}')">Push</button>
+          </td></tr>`;
+      }).join('');
+    } catch { tbody.innerHTML='<tr><td colspan="4"><div class="empty">Error loading pages</div></td></tr>'; }
+  }
+
+  // ── Map ──
+  async function loadMap() {
+    try {
+      const d = await apiFetch('/map');
+      document.getElementById('stat-linked').textContent = d.summary.linked;
+      document.getElementById('stat-mwonly').textContent = d.summary.mwOnly;
+      document.getElementById('map-linked').textContent = d.summary.linked;
+      document.getElementById('map-ofs').textContent = d.summary.ofsOnly;
+      document.getElementById('map-mw').textContent = d.summary.mwOnly;
+      document.getElementById('map-linked-list').innerHTML = d.linked.length
+        ? d.linked.map(l=>`<div class="list-item"><span class="list-title">${l.openfsTitle}</span><span class="list-meta">&#8596;</span><a href="${l.mwUrl}" target="_blank" class="tbl-link" style="font-size:0.78rem">${l.mwTitle}</a></div>`).join('')
+        : '<div class="empty">None linked</div>';
+      document.getElementById('map-mw-list').innerHTML = d.mwOnly.length
+        ? d.mwOnly.map(t=>`<div class="list-item"><span class="list-title">${t}</span><a href="${MW}/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}" target="_blank" class="btn btn-outline btn-sm">View</a><button class="btn btn-outline btn-sm" onclick="resynth('${t.replace(/'/g,"\\'")}')">Synthesize</button></div>`).join('')
+        : '<div class="empty">None</div>';
+    } catch {}
+  }
+
+  // ── Ingest ──
+  async function ingestUrl() {
+    const url = document.getElementById('ing-url').value.trim();
+    const res = document.getElementById('ing-url-result');
+    if (!url) return;
+    res.className='form-result'; res.textContent='Fetching...'; res.style.cssText='display:block;background:var(--surface2);color:var(--muted)';
+    try {
+      const d = await apiFetch('/ingest-url', { url });
+      if (d.error) throw new Error(d.error);
+      res.className='form-result ok'; res.style.cssText=''; res.textContent='Done — '+(d.pagesCreated?.length??0)+' created, '+(d.pagesUpdated?.length??0)+' updated';
+      loadPages?.();
+    } catch(e){res.className='form-result err'; res.style.cssText=''; res.textContent='Error: '+e.message;}
+  }
+
+  async function ingestText() {
+    const title=document.getElementById('ing-title').value.trim();
+    const content=document.getElementById('ing-content').value.trim();
+    const res=document.getElementById('ing-text-result');
+    if(!title||!content){res.className='form-result err';res.textContent='Title and content required';return;}
+    res.className='form-result'; res.textContent='Ingesting...'; res.style.cssText='display:block;background:var(--surface2);color:var(--muted)';
+    try{const d=await apiFetch('/ingest',{title,content}); res.className='form-result ok'; res.style.cssText=''; res.textContent='Done — '+(d.pagesCreated?.length??0)+' created';}
+    catch(e){res.className='form-result err'; res.style.cssText=''; res.textContent='Error: '+e.message;}
+  }
+
+  // ── Embedding sync ──
+  async function embedWiki() {
+    const btn = document.getElementById('embed-wiki-btn');
+    const res = document.getElementById('embed-wiki-result');
+    const topic = document.getElementById('embed-wiki-topic').value.trim() || undefined;
+    btn.disabled = true; btn.textContent = 'Embedding...';
+    res.className='form-result'; res.style.cssText='display:block;background:var(--surface2);color:var(--muted)'; res.textContent='Embedding wiki pages into Chroma — this may take a minute...';
+    try {
+      const d = await apiFetch('/kg-ingest-wiki', topic ? { topic } : {});
+      if (d.error) throw new Error(d.error);
+      res.className='form-result ok'; res.style.cssText='';
+      res.textContent=`Done — ${d.pagesEmbedded} pages, ${d.chunksStored} chunks embedded${d.errors?.length ? ` (${d.errors.length} errors)` : ''}`;
+    } catch(e) { res.className='form-result err'; res.style.cssText=''; res.textContent='Error: '+e.message; }
+    btn.disabled=false; btn.textContent='Embed Wiki';
+  }
+
+  async function embedS3() {
+    const btn = document.getElementById('embed-s3-btn');
+    const res = document.getElementById('embed-s3-result');
+    const bucket = document.getElementById('s3-bucket').value.trim();
+    const prefix = document.getElementById('s3-prefix').value.trim() || undefined;
+    const topic = document.getElementById('s3-topic').value.trim() || undefined;
+    if (!bucket) { res.className='form-result err'; res.style.cssText=''; res.textContent='Bucket name required'; return; }
+    btn.disabled=true; btn.textContent='Ingesting...';
+    res.className='form-result'; res.style.cssText='display:block;background:var(--surface2);color:var(--muted)'; res.textContent=`Processing s3://${bucket}/${prefix??''} — this may take several minutes...`;
+    try {
+      const d = await apiFetch('/s3-ingest', { bucket, prefix, topic });
+      if (d.error) throw new Error(d.error);
+      res.className='form-result ok'; res.style.cssText='';
+      res.textContent=`Done — ${d.filesProcessed} files, ${d.chunksStored} chunks, ${d.entitiesExtracted} entities`;
+    } catch(e) { res.className='form-result err'; res.style.cssText=''; res.textContent='Error: '+e.message; }
+    btn.disabled=false; btn.textContent='Embed S3 Bucket';
+  }
+
+  // ── Actions ──
+  async function doSync(action) {
+    const btn = event?.target; const orig = btn?.textContent;
+    if(btn){btn.disabled=true; btn.textContent=action==='pull'?'Pulling...':'Pushing...';}
+    try{await apiFetch('/'+action,{}); setTimeout(()=>{loadStatus();loadRecent();},2500);}catch{}
+    if(btn) setTimeout(()=>{btn.disabled=false;btn.textContent=orig;},3000);
+  }
+  async function pushPage(path){try{await apiFetch('/push-page',{path});alert('Pushed to MediaWiki');}catch(e){alert('Error: '+e.message);}}
+  async function resynth(title){try{await apiFetch('/resynth',{title});alert('Synthesized: '+title);loadMap();}catch(e){alert('Error: '+e.message);}}
+  function editPage(path,title){sessionStorage.setItem('openfs_edit_path',path);sessionStorage.setItem('openfs_edit_title',title);window.location.href='/editor';}
+
+  // ── Chat ──
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  function formatAnswer(text) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/`([^`]+)`/g,'<code>$1</code>')
+      .replace(/\n/g,'<br>');
+  }
+
+  function buildCitations(citations) {
+    if (!citations?.length) return '';
+    const cards = citations.slice(0, 6).map(c => {
+      const label = (c.title || c.path || c.source || '').replace(/^\/wiki\//,'').replace(/\.md$/,'').replace(/[-_]/g,' ');
+      const matchBadge = c.matchType === 'keyword+semantic' ? `<span class="cite-badge cite-badge-both">keyword+semantic</span>`
+        : c.matchType === 'keyword' ? `<span class="cite-badge cite-badge-kw">keyword</span>`
+        : c.matchType === 'semantic' ? `<span class="cite-badge cite-badge-sem">semantic</span>` : '';
+      const score = c.score != null ? `<span class="cite-score">${(c.score*100).toFixed(0)}%</span>` : matchBadge ? '' : '';
+      const srcPath = c.source || c.path || '';
+      const srcLabel = srcPath ? srcPath.split('/').slice(-2).join('/') : '';
+      const src = srcLabel ? `<span class="cite-src">${srcLabel}</span>` : '';
+      // Clean any residual markup in excerpt (server already cleans, this is a safety net)
+      const rawExcerpt = (c.excerpt || '')
+        .replace(/={2,}[^=]+=+/g,'').replace(/^#+\s+/gm,'')
+        .replace(/\[\/[^\]]+\s([^\]]+)\]/g,'$1').replace(/\s{2,}/g,' ').trim();
+      const excerpt = rawExcerpt.length > 10 ? `<div class="cite-excerpt">${esc(rawExcerpt.slice(0,130))}…</div>` : '';
+
+      // Build href: wiki path → MW url, S3 source → nothing (open editor), fallback to MW search
+      let href = '#';
+      if (c.path && c.path.startsWith('/wiki/')) {
+        const mwTitle = encodeURIComponent(label.replace(/\b\w/g,ch=>ch.toUpperCase()).replace(/ /g,'_'));
+        href = `${MW}/wiki/${mwTitle}`;
+      } else if (c.source && !c.source.startsWith('/')) {
+        // S3 source file — open editor with the title loaded
+        href = `/editor?title=${encodeURIComponent(label)}`;
+      }
+      const tag = href !== '#' ? 'a' : 'div';
+      const attrs = href !== '#' ? `href="${href}" target="${href.startsWith(MW)?'_blank':'_self'}" rel="noopener"` : '';
+      return `<${tag} class="cite-card" ${attrs}>${matchBadge}${score}<span class="cite-title">${esc(label)}</span>${src}${excerpt}</${tag}>`;
+    }).join('');
+    return `<div class="cite-grid">${cards}</div>`;
+  }
+
+  function appendMsg(role, html, citations) {
+    const c=document.getElementById('chat-messages');
+    const div=document.createElement('div'); div.className='msg '+role;
+    div.innerHTML=`<div class="bubble">${html}</div>${buildCitations(citations)}`;
+    c.appendChild(div); c.scrollTop=c.scrollHeight; return div;
+  }
+
+  // Auto-detect agent commands even without toggle
+  function isAgentCommand(q) {
+    return /^(ingest|expand|browse|crawl|fetch)\s/i.test(q) || /https?:\/\//i.test(q);
+  }
+
+  // Special commands that bypass both RAG and agent — direct API calls
+  async function trySpecialCommand(q) {
+    if (/^\s*lint\s*$/i.test(q)) {
+      const d = await apiFetch('/lint', {});
+      if (d.error) return `Lint error: ${d.error}`;
+      const { summary, issues } = d;
+      let msg = `**Wiki Lint** — ${summary.pagesChecked} pages checked\n${summary.errors} errors · ${summary.warnings} warnings`;
+      if (issues.length === 0) { msg += '\n\n✓ All checks passed!'; }
+      else {
+        msg += '\n\n' + issues.map(i =>
+          `**[${i.rule}]** \`${i.path.replace(/^\/wiki\//,'').replace(/\.md$/,'')}\`\n${i.detail}\n_Fix: ${i.fix}_`
+        ).join('\n\n');
+      }
+      return msg;
+    }
+    if (/^\s*(log|activity)\s*$/i.test(q)) {
+      const d = await apiFetch('/log', null, 'GET');
+      return d.content ? `**Activity Log**\n\n${d.content.slice(-2000)}` : 'No log yet.';
+    }
+    return null;
+  }
+
+  async function sendMsg() {
+    const input=document.getElementById('chat-input'),btn=document.getElementById('send-btn');
+    const q=input.value.trim(); if(!q) return;
+    input.value=''; input.style.height='auto'; btn.disabled=true;
+    const agentMode = document.getElementById('agent-mode-toggle')?.checked || isAgentCommand(q);
+    appendMsg('user', esc(q));
+    // Check for direct special commands first (lint, log)
+    const special = await trySpecialCommand(q);
+    if (special !== null) {
+      appendMsg('assistant', formatAnswer(special));
+      btn.disabled=false; input.focus();
+      return;
+    }
+    const endpoint = agentMode ? '/query-agent' : '/query';
+    const label = agentMode ? '<span class="spinner"></span> Agent thinking...' : '<span class="spinner"></span> Searching knowledge base...';
+    const t=appendMsg('assistant', label);
+    try{
+      const d=await apiFetch(endpoint,{question:q});
+      t.querySelector('.bubble').innerHTML=formatAnswer(d.answer??'No answer.');
+      const citeHtml=buildCitations(d.citations);
+      if(citeHtml){const cd=document.createElement('div');cd.innerHTML=citeHtml;t.appendChild(cd.firstChild);}
+    }catch(e){t.querySelector('.bubble').textContent='Error: '+e.message;}
+    btn.disabled=false; input.focus();
+  }
+
+  function sendPreset(q){document.getElementById('chat-input').value=q;sendMsg();}
+
+  // ── Init ──
+  loadStatus(); loadRecent(); loadAgentActivity();
+  apiFetch('/pages').then(p=>{document.getElementById('stat-total').textContent=p.length;const sb=document.getElementById('sb-page-count');if(sb)sb.textContent=p.length;}).catch(()=>{});
+  apiFetch('/map').then(d=>{document.getElementById('stat-linked').textContent=d.summary.linked;document.getElementById('stat-mwonly').textContent=d.summary.mwOnly;}).catch(()=>{});
+</script>

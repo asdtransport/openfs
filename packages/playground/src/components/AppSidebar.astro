@@ -1,0 +1,140 @@
+---
+interface Props {
+  active?: string;
+}
+const { active = 'dashboard' } = Astro.props;
+---
+
+<aside class="sidebar">
+  <div class="sidebar-profile">
+    <div class="avatar">D</div>
+    <div class="profile-info">
+      <div class="profile-name">Derek Davis</div>
+      <div class="profile-role">Admin</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">OVERVIEW</div>
+    <a href="/enterprise" class={`nav-item ${active === 'dashboard' ? 'active' : ''}`}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+
+    <div class="nav-section-label">KNOWLEDGE</div>
+    <a href="/enterprise?view=pages" class={`nav-item ${active === 'pages' ? 'active' : ''}`}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Articles
+    </a>
+    <a href="/enterprise?view=recent" class={`nav-item ${active === 'recent' ? 'active' : ''}`}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Recent Changes
+    </a>
+    <a href="/enterprise?view=map" class={`nav-item ${active === 'map' ? 'active' : ''}`}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      Link Map
+    </a>
+
+    <div class="nav-section-label">INGEST</div>
+    <a href="/enterprise?view=ingest" class={`nav-item ${active === 'ingest' ? 'active' : ''}`}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      From URL
+    </a>
+    <a href="/editor" class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Editor
+    </a>
+
+    <div class="nav-section-label">DATA SOURCES</div>
+    <a href="https://mw.openfs.derekethandavis.com" target="_blank" class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      MediaWiki
+      <span class="nav-badge live">live</span>
+    </a>
+    <a href="http://localhost:9001" target="_blank" class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      MinIO S3
+    </a>
+    <a href="http://localhost:8000" target="_blank" class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Chroma DB
+    </a>
+
+    <div class="nav-section-label">INTERFACES</div>
+    <a href="https://t.me/Openfs_bot" target="_blank" class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Telegram Bot
+    </a>
+    <a href="/" class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Terminal
+    </a>
+  </nav>
+</aside>
+
+<style>
+  .sidebar {
+    width: 220px;
+    background: #1c2030;
+    color: #c8cdd8;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+    height: 100%;
+  }
+  .sidebar-profile {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 1.1rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #6d28d9;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .profile-name { font-size: 0.84rem; font-weight: 600; color: #f0f2f7; }
+  .profile-role { font-size: 0.72rem; color: #6b7485; margin-top: 0.05rem; }
+  .sidebar-nav { padding: 0.75rem 0.6rem; display: flex; flex-direction: column; gap: 0.05rem; }
+  .nav-section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #4a5168;
+    letter-spacing: 0.07em;
+    padding: 0.75rem 0.5rem 0.3rem;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    color: #8a91a8;
+    font-size: 0.83rem;
+    text-decoration: none;
+    transition: all 0.12s;
+    cursor: pointer;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: #e0e4f0; }
+  .nav-item.active { background: rgba(109,40,217,0.25); color: #a78bfa; font-weight: 500; }
+  .nav-item svg { flex-shrink: 0; opacity: 0.7; }
+  .nav-item.active svg { opacity: 1; }
+  .nav-badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .nav-badge.live { background: rgba(5,150,105,0.2); color: #34d399; }
+</style>

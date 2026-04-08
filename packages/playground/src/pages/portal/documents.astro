@@ -1,0 +1,592 @@
+---
+import PortalShell from '../../components/PortalShell.astro';
+---
+<PortalShell title="Documents" active="documents">
+
+<style is:global>
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--surface);
+    margin-bottom: 1.25rem;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--navy);
+    background: var(--navy-light);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon {
+    width: 40px; height: 40px;
+    background: var(--navy-light);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.75rem;
+    color: var(--navy);
+  }
+  .upload-title { font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem; }
+  .upload-sub { font-size: 0.75rem; color: var(--muted); }
+
+  /* Progress */
+  .ingest-progress {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    display: none;
+  }
+  .progress-bar-wrap {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0.6rem 0;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  .progress-label { font-size: 0.78rem; color: var(--muted); }
+
+  /* Filters */
+  .filters-bar {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .filters-bar input, .filters-bar select {
+    font-size: 0.78rem;
+    padding: 0.38rem 0.65rem;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+  }
+  .filters-bar input { flex: 1; min-width: 180px; }
+  .filter-count { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+
+  /* Table extras */
+  .source-path { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); display: block; margin-top: 0.15rem; }
+  .doc-title { font-weight: 500; color: var(--text); }
+
+  /* Chunk detail panel */
+  .chunks-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    overflow: hidden;
+    margin-top: 1rem;
+    display: none;
+  }
+  .chunk-item {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--text2);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .chunk-item:last-child { border-bottom: none; }
+  .chunk-num {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: var(--navy-light); color: var(--navy);
+    font-size: 0.65rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 0.1rem;
+  }
+  .chunk-text { line-height: 1.55; flex: 1; }
+</style>
+
+<div class="page-header" style="display:flex;align-items:baseline;gap:1rem">
+  <div>
+    <div class="page-title">Documents</div>
+    <div class="page-sub">Upload files and browse ingested knowledge</div>
+  </div>
+  <button class="btn btn-gold btn-sm" onclick="document.getElementById('file-input').click()" style="margin-left:auto">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Upload File
+  </button>
+</div>
+
+<!-- Upload zone -->
+<div class="upload-zone" id="upload-zone"
+  ondragover="e.preventDefault();this.classList.add('drag-over')"
+  ondragleave="this.classList.remove('drag-over')"
+  ondrop="handleDrop(event)">
+  <input type="file" id="file-input" multiple accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.log" onchange="handleFiles(this.files)" />
+  <div class="upload-icon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+    </svg>
+  </div>
+  <div class="upload-title">Drop files here or click to browse</div>
+  <div class="upload-sub">Supports PDF, DOCX, XLSX, CSV, TXT, MD, LOG &mdash; up to 50 MB each</div>
+</div>
+
+<!-- Ingest config + progress -->
+<div id="ingest-config" style="display:none;margin-bottom:1rem">
+  <div class="card" style="margin-bottom:0">
+    <div class="card-head"><span class="card-title">Ingest Settings</span></div>
+    <div style="padding:1rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <label>Collection</label>
+        <select id="ingest-collection" style="min-width:160px">
+          <option value="openfs-knowledge">openfs-knowledge</option>
+        </select>
+      </div>
+      <div>
+        <label>Topic (optional)</label>
+        <input id="ingest-topic" placeholder="e.g. hr-policies" style="min-width:140px" />
+      </div>
+      <div>
+        <label>Model</label>
+        <select id="ingest-model" style="min-width:130px">
+          <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+          <option value="claude-sonnet-4-6">Sonnet (accurate)</option>
+        </select>
+      </div>
+      <button class="btn btn-gold" onclick="startIngest()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Ingest Selected
+      </button>
+      <button class="btn btn-outline" onclick="cancelIngest()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="ingest-progress" id="ingest-progress">
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.35rem">
+    <span class="spinner"></span>
+    <span id="progress-title" style="font-size:0.82rem;font-weight:500">Ingesting…</span>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+  <div class="progress-label" id="progress-label">Starting…</div>
+</div>
+
+<!-- Filters -->
+<div class="filters-bar">
+  <input id="search-filter" placeholder="Search by filename or title…" oninput="filterDocs()" />
+  <select id="collection-filter" onchange="loadSources()">
+    <option value="openfs-knowledge">openfs-knowledge</option>
+  </select>
+  <select id="topic-filter" onchange="filterDocs()">
+    <option value="">All topics</option>
+  </select>
+  <span class="filter-count" id="filter-count"></span>
+</div>
+
+<!-- Documents table -->
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">Ingested Documents</span>
+    <div class="card-head-right">
+      <button class="btn btn-outline btn-sm" onclick="loadSources()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Document</th>
+        <th>Topic</th>
+        <th>Chunks</th>
+        <th>Size</th>
+        <th style="min-width:260px">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="docs-tbody">
+      <tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Chunk detail panel -->
+<div class="chunks-panel" id="chunks-panel">
+  <div class="card-head">
+    <span class="card-title" id="chunks-title">Chunks</span>
+    <div class="card-head-right">
+      <button class="btn btn-outline btn-sm" onclick="closeChunks()">Close</button>
+    </div>
+  </div>
+  <div id="chunks-body"></div>
+</div>
+
+<!-- Pending files list (before ingest) -->
+<div id="pending-files" style="display:none;margin-bottom:1rem">
+  <div class="card" style="margin-bottom:0">
+    <div class="card-head"><span class="card-title" id="pending-title">Files to ingest</span></div>
+    <div id="pending-list"></div>
+  </div>
+</div>
+
+<script is:inline>
+  // API declared globally by PortalShell
+  let allDocs = [];
+  let pendingFiles = [];
+  let mwBaseUrl = '';
+
+  function token() { return localStorage.getItem('openfs_token') || ''; }
+  function authHeaders(extra = {}) { return { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...extra }; }
+
+  async function init() {
+    // Fetch MW URL for wiki links
+    try {
+      const s = await fetch(`${API}/status`, { headers: { Authorization: `Bearer ${token()}` } });
+      const d = await s.json();
+      if (d.mwUrl) mwBaseUrl = d.mwUrl.replace(/\/$/, '');
+    } catch {}
+    await loadCollections();
+    await loadSources();
+  }
+
+  async function loadCollections() {
+    try {
+      const res = await fetch(`${API}/chroma/collections`, { headers: { Authorization: `Bearer ${token()}` } });
+      const data = await res.json();
+      const opts = data.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+      document.getElementById('collection-filter').innerHTML = opts;
+      document.getElementById('ingest-collection').innerHTML = opts;
+    } catch {}
+  }
+
+  async function loadSources() {
+    const col = document.getElementById('collection-filter').value;
+    document.getElementById('docs-tbody').innerHTML = '<tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>';
+
+    try {
+      // Load sources
+      const res = await fetch(`${API}/chroma/sources?collection=${encodeURIComponent(col)}`, { headers: { Authorization: `Bearer ${token()}` } });
+      const data = await res.json();
+      const sourcePaths = data.sources || [];
+
+      // Load topics
+      const topRes = await fetch(`${API}/chroma/topics?collection=${encodeURIComponent(col)}`, { headers: { Authorization: `Bearer ${token()}` } });
+      const topData = await topRes.json();
+      const topSel = document.getElementById('topic-filter');
+      topSel.innerHTML = '<option value="">All topics</option>' + (topData.topics || []).map(t => `<option>${t}</option>`).join('');
+
+      // Build doc rows by fetching chunks per source
+      const docs = sourcePaths.map(src => ({ source: src, topic: '', chunkCount: 0, size: 0 }));
+
+      // Batch-fetch chunk counts
+      const chunkRes = await fetch(`${API}/chroma/chunks?collection=${encodeURIComponent(col)}&limit=10000`, { headers: { Authorization: `Bearer ${token()}` } });
+      const chunkData = await chunkRes.json();
+      const bySource = {};
+      for (const meta of (chunkData.chunks || [])) {
+        const src = meta.source;
+        if (!bySource[src]) bySource[src] = { count: 0, topic: meta.topic || '', size: 0 };
+        bySource[src].count++;
+        bySource[src].size += (meta.content || '').length;
+        if (meta.topic) bySource[src].topic = meta.topic;
+      }
+
+      allDocs = sourcePaths.map(src => ({
+        source: src,
+        topic: bySource[src]?.topic || '',
+        chunkCount: bySource[src]?.count || 0,
+        size: bySource[src]?.size || 0,
+      }));
+
+      filterDocs();
+      document.getElementById('filter-count').textContent = `${allDocs.length} documents`;
+    } catch (e) {
+      document.getElementById('docs-tbody').innerHTML = `<tr><td colspan="5"><div class="empty" style="color:var(--red)">${e.message}</div></td></tr>`;
+    }
+  }
+
+  function filterDocs() {
+    const q = document.getElementById('search-filter').value.toLowerCase();
+    const topic = document.getElementById('topic-filter').value;
+    const filtered = allDocs.filter(d => {
+      const matchQ = !q || d.source.toLowerCase().includes(q);
+      const matchT = !topic || d.topic === topic;
+      return matchQ && matchT;
+    });
+    document.getElementById('filter-count').textContent = `${filtered.length} of ${allDocs.length} documents`;
+    renderDocs(filtered);
+  }
+
+  function renderDocs(docs) {
+    const tbody = document.getElementById('docs-tbody');
+    if (!docs.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty">No documents found</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = docs.map((d, i) => {
+      const name = d.source.split('/').pop() || d.source;
+      const sizeStr = d.size > 1000 ? `${(d.size / 1000).toFixed(1)}k chars` : `${d.size} chars`;
+      const isWiki = d.source.startsWith('/wiki/') || d.source.startsWith('wiki/');
+      const typeBadge = isWiki
+        ? `<span class="tag tag-navy" style="font-size:0.6rem">WIKI</span>`
+        : `<span class="tag tag-gray" style="font-size:0.6rem">S3</span>`;
+      return `<tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            ${typeBadge}
+            <div>
+              <span class="doc-title">${escHtml(name)}</span>
+              <span class="source-path">${escHtml(d.source)}</span>
+            </div>
+          </div>
+        </td>
+        <td>${d.topic ? `<span class="tag tag-navy">${escHtml(d.topic)}</span>` : '<span class="text-muted">—</span>'}</td>
+        <td><span class="tag tag-gray">${d.chunkCount} chunks</span></td>
+        <td class="text-muted text-sm">${sizeStr}</td>
+        <td>
+          <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" onclick="viewChunks('${escHtml(d.source)}')">View Chunks</button>
+            <button class="btn btn-navy btn-sm" id="wiki-btn-${i}" onclick="synthesizeWiki(${i},'${escHtml(d.source)}','${escHtml(name)}')">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Synthesize Wiki
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSource('${escHtml(d.source)}')">Delete</button>
+            <span id="wiki-status-${i}" style="font-size:0.7rem;display:none"></span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function viewChunks(source) {
+    const col = document.getElementById('collection-filter').value;
+    const panel = document.getElementById('chunks-panel');
+    const body = document.getElementById('chunks-body');
+    document.getElementById('chunks-title').textContent = `Chunks: ${source.split('/').pop()}`;
+    body.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+      const res = await fetch(`${API}/chroma/chunks?collection=${encodeURIComponent(col)}&source=${encodeURIComponent(source)}&limit=100`, { headers: { Authorization: `Bearer ${token()}` } });
+      const data = await res.json();
+      const chunks = data.chunks || [];
+      body.innerHTML = chunks.length
+        ? chunks.map((c, i) => `
+          <div class="chunk-item">
+            <div class="chunk-num">${i + 1}</div>
+            <div class="chunk-text">${escHtml(c.content.slice(0, 400))}${c.content.length > 400 ? '…' : ''}</div>
+          </div>`).join('')
+        : '<div class="empty">No chunks found</div>';
+    } catch (e) {
+      body.innerHTML = `<div class="empty" style="color:var(--red)">${e.message}</div>`;
+    }
+  }
+
+  function closeChunks() {
+    document.getElementById('chunks-panel').style.display = 'none';
+  }
+
+  async function deleteSource(source) {
+    if (!confirm(`Delete all chunks for:\n${source}\n\nThis cannot be undone.`)) return;
+    const col = document.getElementById('collection-filter').value;
+    try {
+      const res = await fetch(`${API}/chroma/source?collection=${encodeURIComponent(col)}&source=${encodeURIComponent(source)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (res.ok) await loadSources();
+      else alert((await res.json()).error);
+    } catch (e) { alert(e.message); }
+  }
+
+  // ── File upload / ingest ──
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+  }
+
+  function handleFiles(files) {
+    pendingFiles = Array.from(files);
+    if (!pendingFiles.length) return;
+    showPendingFiles();
+  }
+
+  function showPendingFiles() {
+    document.getElementById('pending-files').style.display = 'block';
+    document.getElementById('ingest-config').style.display = 'block';
+    document.getElementById('pending-title').textContent = `${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} ready to ingest`;
+    document.getElementById('pending-list').innerHTML = pendingFiles.map(f => `
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 1rem;border-bottom:1px solid var(--border)">
+        <span class="tag tag-gray">${f.name.split('.').pop().toUpperCase()}</span>
+        <span style="font-size:0.82rem;font-weight:500">${escHtml(f.name)}</span>
+        <span class="text-muted text-sm" style="margin-left:auto">${(f.size / 1024).toFixed(1)} KB</span>
+      </div>`).join('');
+  }
+
+  function cancelIngest() {
+    pendingFiles = [];
+    document.getElementById('pending-files').style.display = 'none';
+    document.getElementById('ingest-config').style.display = 'none';
+    document.getElementById('file-input').value = '';
+  }
+
+  async function startIngest() {
+    if (!pendingFiles.length) return;
+    const collection = document.getElementById('ingest-collection').value;
+    const topic = document.getElementById('ingest-topic').value.trim();
+    const model = document.getElementById('ingest-model').value;
+
+    const prog = document.getElementById('ingest-progress');
+    const progBar = document.getElementById('progress-bar');
+    const progLabel = document.getElementById('progress-label');
+    const progTitle = document.getElementById('progress-title');
+
+    prog.style.display = 'block';
+    document.getElementById('ingest-config').style.display = 'none';
+
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const file = pendingFiles[i];
+      const pct = Math.round((i / pendingFiles.length) * 100);
+      progBar.style.width = `${pct}%`;
+      progTitle.textContent = `Ingesting ${i + 1} of ${pendingFiles.length}…`;
+      progLabel.textContent = file.name;
+
+      try {
+        // Read file as base64
+        const b64 = await toBase64(file);
+        const res = await fetch(`${API}/s3/ingest-normalized`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            bucket: 'portal-upload',
+            key: file.name,
+            title: file.name,
+            text: await readAsText(file),
+            collection,
+            topic: topic || undefined,
+            model,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) progLabel.textContent = `${file.name}: ${data.error}`;
+        else progLabel.textContent = `${file.name}: ${data.chunks} chunks, ${data.pages} wiki pages`;
+      } catch (e) {
+        progLabel.textContent = `${file.name}: ${e.message}`;
+      }
+    }
+
+    progBar.style.width = '100%';
+    progTitle.textContent = 'Done!';
+    progLabel.textContent = `Ingested ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''}`;
+
+    pendingFiles = [];
+    document.getElementById('pending-files').style.display = 'none';
+    document.getElementById('file-input').value = '';
+    setTimeout(async () => {
+      prog.style.display = 'none';
+      await loadSources();
+    }, 2000);
+  }
+
+  function readAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  }
+
+  function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function synthesizeWiki(i, source, name) {
+    const btn = document.getElementById(`wiki-btn-${i}`);
+    const status = document.getElementById(`wiki-status-${i}`);
+    if (!btn) return;
+    const iconSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;margin-right:4px"></span>Working…';
+    status.style.display = 'none';
+
+    try {
+      // 1. Fetch content chunks for this source
+      const col = document.getElementById('collection-filter').value;
+      const res = await fetch(`${API}/chroma/chunks?collection=${encodeURIComponent(col)}&source=${encodeURIComponent(source)}&limit=200`, {
+        headers: { Authorization: `Bearer ${token()}` }
+      });
+      const data = await res.json();
+      const chunks = (data.chunks || []).filter(c => {
+        const s = (c.content || '').trim();
+        if (s.startsWith('{') || s.startsWith('[')) { try { JSON.parse(s); return false; } catch {} }
+        return s.length > 20;
+      });
+
+      if (!chunks.length) throw new Error('No content chunks found');
+
+      const content = chunks.map(c => c.content).join('\n\n');
+      const title = name.replace(/\.[^.]+$/, ''); // strip file extension
+
+      // 2. Call /ingest to create/update wiki pages
+      const synthRes = await fetch(`${API}/ingest`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ title, content }),
+      });
+      const synthData = await synthRes.json();
+      if (!synthRes.ok) throw new Error(synthData.error || 'Synthesis failed');
+
+      const allPages = [...(synthData.pagesCreated || []), ...(synthData.pagesUpdated || [])];
+      const created = synthData.pagesCreated?.length ?? 0;
+      const updated = synthData.pagesUpdated?.length ?? 0;
+
+      if (allPages.length && mwBaseUrl) {
+        // Build links to each wiki page
+        const links = allPages.map(p => {
+          // /wiki/page-name.md → Page name
+          const pageName = p.replace(/^\/wiki\//, '').replace(/\.md$/, '');
+          const mwTitle = pageName.replace(/-/g, '_').replace(/\b\w/g, c => c.toUpperCase());
+          const href = `${mwBaseUrl}/wiki/${encodeURIComponent(mwTitle)}`;
+          return `<a href="${href}" target="_blank" rel="noopener" style="color:var(--navy);font-weight:600;text-decoration:underline">${pageName}</a>`;
+        }).join(', ');
+        status.innerHTML = `✓ ${links}`;
+      } else {
+        status.textContent = `✓ ${created} created, ${updated} updated`;
+      }
+      status.style.color = 'var(--green)';
+    } catch (e) {
+      status.textContent = `✗ ${e.message}`;
+      status.style.color = 'var(--red)';
+    }
+
+    status.style.display = 'inline';
+    btn.disabled = false;
+    btn.innerHTML = `${iconSvg} Synthesize Wiki`;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  init();
+</script>
+
+</PortalShell>

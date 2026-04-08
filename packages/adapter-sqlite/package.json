@@ -1,0 +1,15 @@
+{
+  "name": "@openfs/adapter-sqlite",
+  "version": "0.1.0",
+  "description": "SQLite adapter for OpenFS — bun:sqlite + FTS5",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@openfs/core": "workspace:*"
+  },
+  "license": "Apache-2.0"
+}

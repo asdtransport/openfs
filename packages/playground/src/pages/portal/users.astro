@@ -1,0 +1,268 @@
+---
+import PortalShell from '../../components/PortalShell.astro';
+---
+<PortalShell title="Users" active="users">
+
+<style is:global>
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.85rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .user-card:last-child { border-bottom: none; }
+  .user-card:hover { background: var(--surface2); }
+  .u-avatar {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: var(--navy);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .u-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+  .u-username { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }
+  .u-joined { font-size: 0.72rem; color: var(--muted); }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    max-width: 440px; width: 100%;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .modal-head { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; }
+  .modal-title { font-size: 0.9rem; font-weight: 600; flex: 1; }
+  .modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.9rem; }
+  .modal-foot { padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.75rem; font-weight: 500; color: var(--text2); }
+  .form-group input, .form-group select { font-size: 0.82rem; padding: 0.45rem 0.7rem; border: 1px solid var(--border2); border-radius: 6px; }
+  .err { color: var(--red); font-size: 0.78rem; background: var(--red-light); padding: 0.5rem 0.75rem; border-radius: 5px; display: none; }
+</style>
+
+<div class="page-header" style="display:flex;align-items:baseline;gap:1rem">
+  <div>
+    <div class="page-title">Users</div>
+    <div class="page-sub">Manage employee portal access</div>
+  </div>
+  <button class="btn btn-gold btn-sm" onclick="openAddModal()" style="margin-left:auto">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Add User
+  </button>
+</div>
+
+<div class="stats-grid stats-3" style="margin-bottom:1.25rem">
+  <div class="stat-card" style="color:var(--navy)"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Total Users</div></div>
+  <div class="stat-card" style="color:var(--gold)"><div class="stat-val" id="stat-admins">—</div><div class="stat-lbl">Admins</div></div>
+  <div class="stat-card" style="color:var(--green)"><div class="stat-val" id="stat-employees">—</div><div class="stat-lbl">Employees</div></div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">All Users</span>
+    <div class="card-head-right">
+      <button class="btn btn-outline btn-sm" onclick="loadUsers()">Refresh</button>
+    </div>
+  </div>
+  <div id="users-list">
+    <div class="empty"><span class="spinner"></span></div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-backdrop" id="add-modal" style="display:none" onclick="closeOnBackdrop(event,'add-modal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add New User</div>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted)" onclick="document.getElementById('add-modal').style.display='none'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="err" id="add-err"></div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input id="add-name" placeholder="Jane Smith" />
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input id="add-username" placeholder="jane.smith" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="add-password" type="password" placeholder="Min 8 characters" />
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="add-role">
+          <option value="employee">Employee</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('add-modal').style.display='none'">Cancel</button>
+      <button class="btn btn-gold btn-sm" onclick="addUser()">Create User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Change Modal -->
+<div class="modal-backdrop" id="pw-modal" style="display:none" onclick="closeOnBackdrop(event,'pw-modal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Change Password</div>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted)" onclick="document.getElementById('pw-modal').style.display='none'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="err" id="pw-err"></div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem" id="pw-for"></div>
+      <div class="form-group">
+        <label>New Password</label>
+        <input id="pw-new" type="password" placeholder="Min 8 characters" />
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('pw-modal').style.display='none'">Cancel</button>
+      <button class="btn btn-navy btn-sm" onclick="changePassword()">Update Password</button>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  // API declared globally by PortalShell
+  let users = [];
+  let pwTarget = null;
+
+  function token() { return localStorage.getItem('openfs_token') || ''; }
+  function authHdr(extra = {}) { return { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...extra }; }
+
+  async function loadUsers() {
+    document.getElementById('users-list').innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+    try {
+      const res = await fetch(`${API}/auth/users`, { headers: authHdr() });
+      if (res.status === 403) {
+        document.getElementById('users-list').innerHTML = '<div class="empty" style="color:var(--red)">Admin access required</div>';
+        return;
+      }
+      users = await res.json();
+      renderUsers();
+    } catch (e) {
+      document.getElementById('users-list').innerHTML = `<div class="empty" style="color:var(--red)">${e.message}</div>`;
+    }
+  }
+
+  function renderUsers() {
+    const admins = users.filter(u => u.role === 'admin').length;
+    const employees = users.filter(u => u.role !== 'admin').length;
+    document.getElementById('stat-total').textContent = users.length;
+    document.getElementById('stat-admins').textContent = admins;
+    document.getElementById('stat-employees').textContent = employees;
+
+    const me = JSON.parse(localStorage.getItem('openfs_user') || '{}');
+    const list = document.getElementById('users-list');
+    list.innerHTML = users.map(u => `
+      <div class="user-card">
+        <div class="u-avatar" style="background:${u.role==='admin'?'var(--gold)':'var(--navy)'}">${(u.name||u.username).slice(0,2).toUpperCase()}</div>
+        <div style="flex:1">
+          <div class="u-name">${escHtml(u.name || u.username)}</div>
+          <div class="u-username">@${escHtml(u.username)}</div>
+        </div>
+        <span class="tag ${u.role==='admin'?'tag-gold':'tag-navy'}">${u.role}</span>
+        <div class="u-joined">Joined ${new Date(u.created_at).toLocaleDateString()}</div>
+        <div style="display:flex;gap:0.4rem;margin-left:0.5rem">
+          <button class="btn btn-outline btn-sm" onclick="openPwModal('${u.id}','${escHtml(u.name||u.username)}')">Reset PW</button>
+          ${u.id !== me.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}','${escHtml(u.name||u.username)}')">Remove</button>` : '<span class="tag tag-gray">You</span>'}
+        </div>
+      </div>`).join('');
+  }
+
+  function openAddModal() {
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-username').value = '';
+    document.getElementById('add-password').value = '';
+    document.getElementById('add-role').value = 'employee';
+    document.getElementById('add-err').style.display = 'none';
+    document.getElementById('add-modal').style.display = 'flex';
+  }
+
+  async function addUser() {
+    const errDiv = document.getElementById('add-err');
+    errDiv.style.display = 'none';
+    const name = document.getElementById('add-name').value.trim();
+    const username = document.getElementById('add-username').value.trim();
+    const password = document.getElementById('add-password').value;
+    const role = document.getElementById('add-role').value;
+    if (!username || !password) { errDiv.textContent = 'Username and password required'; errDiv.style.display = 'block'; return; }
+    if (password.length < 8) { errDiv.textContent = 'Password must be at least 8 characters'; errDiv.style.display = 'block'; return; }
+    try {
+      const res = await fetch(`${API}/auth/users`, {
+        method: 'POST',
+        headers: authHdr(),
+        body: JSON.stringify({ name, username, password, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) { errDiv.textContent = data.error; errDiv.style.display = 'block'; return; }
+      document.getElementById('add-modal').style.display = 'none';
+      await loadUsers();
+    } catch (e) { errDiv.textContent = e.message; errDiv.style.display = 'block'; }
+  }
+
+  function openPwModal(id, name) {
+    pwTarget = id;
+    document.getElementById('pw-new').value = '';
+    document.getElementById('pw-err').style.display = 'none';
+    document.getElementById('pw-for').textContent = `Changing password for: ${name}`;
+    document.getElementById('pw-modal').style.display = 'flex';
+  }
+
+  async function changePassword() {
+    const errDiv = document.getElementById('pw-err');
+    const password = document.getElementById('pw-new').value;
+    if (!password || password.length < 8) { errDiv.textContent = 'Min 8 characters'; errDiv.style.display = 'block'; return; }
+    try {
+      const res = await fetch(`${API}/auth/users/${pwTarget}/password`, {
+        method: 'PATCH', headers: authHdr(), body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { errDiv.textContent = data.error; errDiv.style.display = 'block'; return; }
+      document.getElementById('pw-modal').style.display = 'none';
+    } catch (e) { errDiv.textContent = e.message; errDiv.style.display = 'block'; }
+  }
+
+  async function deleteUser(id, name) {
+    if (!confirm(`Remove user "${name}"? They will lose all portal access.`)) return;
+    try {
+      const res = await fetch(`${API}/auth/users/${id}`, { method: 'DELETE', headers: authHdr() });
+      if (res.ok) await loadUsers();
+      else alert((await res.json()).error);
+    } catch (e) { alert(e.message); }
+  }
+
+  function closeOnBackdrop(e, id) { if (e.target.id === id) document.getElementById(id).style.display = 'none'; }
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  loadUsers();
+</script>
+
+</PortalShell>

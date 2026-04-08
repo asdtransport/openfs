@@ -1,0 +1,22 @@
+{
+  "name": "@openfs/agent",
+  "version": "0.1.0",
+  "description": "OpenFS MCP server — exposes OpenFS filesystem tools to any Claude/LLM via Model Context Protocol",
+  "type": "module",
+  "bin": {
+    "openfs-agent": "./src/mcp.ts"
+  },
+  "scripts": {
+    "start": "bun run src/mcp.ts",
+    "dev": "bun run --hot src/mcp.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@openfs/wasm": "workspace:*",
+    "@openfs/agent-wiki": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT"
+}

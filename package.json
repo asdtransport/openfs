@@ -1,0 +1,21 @@
+{
+  "name": "openfs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pluggable virtual filesystem adapters for just-bash",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "dev": "pnpm --filter @openfs/server dev",
+    "test:integration": "bun test tests/"
+  },
+  "devDependencies": {
+    "just-bash": "^2.14.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@chroma-core/default-embed": "^0.1.9",
+    "chromadb": "^3.4.0"
+  }
+}

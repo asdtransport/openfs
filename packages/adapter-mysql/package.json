@@ -1,0 +1,10 @@
+{
+  "name": "@openfs/adapter-mysql",
+  "version": "0.1.0",
+  "description": "mysql adapter for OpenFS",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": { "build": "echo stub", "test": "echo stub" },
+  "peerDependencies": { "@openfs/core": "workspace:*" },
+  "license": "Apache-2.0"
+}

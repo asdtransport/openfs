@@ -1,0 +1,130 @@
+/* ── Derek Davis Wiki — MonoBook, Farzapedia-style ──────────────────────── */
+
+/* ── Hero ──────────────────────────────────────────────────────────────────── */
+#derek-hero {
+    text-align: center;
+    padding: 1.4em 1em 1em;
+    font-size: 1.45em;
+    font-weight: 700;
+    color: #000;
+    border-bottom: 1px solid #aaa;
+    margin-bottom: 1.2em;
+}
+#derek-hero .hero-sub {
+    display: block;
+    font-size: .58em;
+    font-weight: 400;
+    color: #555;
+    margin-top: .2em;
+}
+#derek-hero .hero-stats {
+    display: block;
+    font-size: .46em;
+    font-weight: 400;
+    color: #555;
+    margin-top: .35em;
+}
+
+/* ── Main two-column layout ────────────────────────────────────────────────── */
+.derek-main-layout {
+    width: 100% !important;
+    border: none !important;
+    border-collapse: collapse !important;
+    background: none !important;
+}
+.derek-col-left {
+    width: 62% !important;
+    padding-right: 1.4em !important;
+    vertical-align: top !important;
+    border: none !important;
+}
+.derek-col-right {
+    width: 38% !important;
+    vertical-align: top !important;
+    border: none !important;
+}
+
+/* ── Panels — blue-gray header bar like Farzapedia ─────────────────────────── */
+.derek-panel {
+    width: 100% !important;
+    border: 1px solid #aaa !important;
+    border-collapse: collapse !important;
+    margin-bottom: 1.1em !important;
+    background: #fff !important;
+    font-size: .9em !important;
+}
+.derek-panel-header {
+    background: #cee0f2 !important;
+    border-bottom: 1px solid #aaa !important;
+    padding: .35em .7em !important;
+    font-size: 1em !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+    color: #000 !important;
+}
+.derek-panel-body {
+    padding: .7em .9em !important;
+    line-height: 1.6 !important;
+    vertical-align: top !important;
+    color: #202122 !important;
+}
+
+/* bullet lists inside panels */
+.derek-panel-body ul { margin: .3em 0 .3em 1.4em; padding: 0; }
+.derek-panel-body ul li { margin-bottom: .2em; }
+
+/* definition list (category browse) */
+.derek-panel-body dl { margin: .2em 0; }
+.derek-panel-body dl dt { font-weight: 700; margin-top: .5em; font-size: 1em; }
+.derek-panel-body dl dd { margin-left: 1.2em; color: #333; }
+.derek-panel-body dl dd ul { margin-left: 0; }
+
+/* ── Sidebar (MonoBook #p-navigation, category portlets) ───────────────────── */
+#p-logo { margin-bottom: .5em; }
+
+div.portlet h5,
+div.portlet h3 {
+    background: #cee0f2 !important;
+    border: 1px solid #aaa !important;
+    padding: .25em .5em !important;
+    font-size: .85em !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+    margin: 0 0 0 0 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+div.portlet div.pBody {
+    border: 1px solid #aaa !important;
+    border-top: none !important;
+    padding: .3em .5em !important;
+    background: #f8f9fa !important;
+    margin-bottom: .6em !important;
+}
+div.portlet div.pBody ul {
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+div.portlet div.pBody li {
+    padding: .12em 0 !important;
+    font-size: .88em !important;
+}
+div.portlet div.pBody li a { color: #3366cc !important; }
+
+/* ── Article title ─────────────────────────────────────────────────────────── */
+#firstHeading {
+    border-bottom: 1px solid #aaa !important;
+    padding-bottom: .2em !important;
+    margin-bottom: .7em !important;
+    font-size: 1.8em !important;
+}
+
+/* Hide h1 on main page */
+.page-Main_Page #firstHeading { display: none; }
+
+/* ── Content area width ────────────────────────────────────────────────────── */
+#content { padding: 1em 1.5em !important; }
+
+/* MonoBook default table fixes */
+.mw-parser-output table { border: none !important; background: none !important; }

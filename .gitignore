@@ -1,0 +1,45 @@
+# ── Dependencies ────────────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.yarn/
+
+# ── Build outputs ────────────────────────────────────────────────────────────────
+dist/
+build/
+.astro/
+*.tsbuildinfo
+*.js.map
+
+# ── Environment ──────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Logs / OS ────────────────────────────────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db
+
+# ── MediaWiki source ─────────────────────────────────────────────────────────────
+# Full MW 1.43 source is pulled via FROM mediawiki:1.43 in Docker.
+# Only our custom config files are committed.
+/packages/mediawiki/*
+!/packages/mediawiki/Dockerfile
+!/packages/mediawiki/docker-compose.yml
+!/packages/mediawiki/entrypoint.sh
+!/packages/mediawiki/LocalSettings.php
+!/packages/mediawiki/README.md
+!/packages/mediawiki/setup/
+!/packages/mediawiki/data/
+
+# ── Databases / data ─────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.db-shm
+*.db-wal
+chroma_data/
+
+# ── Misc ─────────────────────────────────────────────────────────────────────────
+.turbo/
+.cache/
+tmp/

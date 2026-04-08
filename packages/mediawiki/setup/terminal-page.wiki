@@ -1,0 +1,352 @@
+== OpenFS Agent ==
+
+<html>
+<style>
+#openfs-wrap { font-family: system-ui, sans-serif; font-size: .9em; }
+#openfs-status { background:#f0f4f8; border:1px solid #ccc; border-radius:4px; padding:.7em 1em; margin-bottom:1em; }
+#openfs-status .ok  { color:#16a34a; font-weight:700; }
+#openfs-status .err { color:#dc2626; font-weight:700; }
+.openfs-btn { display:inline-block; padding:.35em .8em; margin:.2em .1em; border:1px solid #aaa; border-radius:3px; cursor:pointer; font-size:.85em; background:#fff; }
+.openfs-btn:hover { background:#eee; }
+.openfs-btn.primary { background:#3366cc; color:#fff; border-color:#3366cc; }
+.openfs-btn.primary:hover { background:#2255bb; }
+.openfs-tabs { display:flex; gap:0; margin:1em 0 0; border-bottom:2px solid #3366cc; }
+.openfs-tab { padding:.4em 1em; cursor:pointer; border:1px solid #ccc; border-bottom:none; margin-right:2px; background:#f8f8f8; border-radius:3px 3px 0 0; font-size:.85em; }
+.openfs-tab.active { background:#fff; border-bottom:2px solid #fff; margin-bottom:-2px; font-weight:700; color:#3366cc; }
+.openfs-panel { display:none; border:1px solid #ccc; border-top:none; padding:1em; background:#fff; }
+.openfs-panel.active { display:block; }
+.map-linked { color:#16a34a; }
+.map-ofs-only { color:#d97706; }
+.map-mw-only { color:#6b7280; }
+table.map-table { width:100%; border-collapse:collapse; font-size:.85em; }
+table.map-table th { background:#eaecf0; padding:.3em .6em; text-align:left; border:1px solid #ccc; }
+table.map-table td { padding:.3em .6em; border:1px solid #eee; vertical-align:top; }
+table.map-table tr:hover td { background:#f8f9fa; }
+#openfs-query-box input { width:75%; padding:.4em .6em; border:1px solid #aaa; border-radius:3px; }
+#openfs-answer { width:100%; height:140px; padding:.5em; border:1px solid #aaa; border-radius:3px; font-size:.88em; margin-top:.5em; resize:vertical; box-sizing:border-box; }
+#openfs-log { margin-top:.5em; font-size:.78em; color:#555; max-height:80px; overflow:auto; background:#f8f8f8; border:1px solid #eee; padding:.3em .5em; border-radius:3px; }
+</style>
+
+<div id="openfs-wrap">
+  <div id="openfs-status">Connecting to OpenFS sync server...</div>
+
+  <div>
+    <button class="openfs-btn primary" onclick="syncPull()">⬇ Pull from MW</button>
+    <button class="openfs-btn primary" onclick="syncPush()">⬆ Push to MW</button>
+    <button class="openfs-btn" onclick="syncRecent()">⟳ Sync recent</button>
+    <button class="openfs-btn" onclick="showMap()">🗺 Link map</button>
+  </div>
+
+  <div class="openfs-tabs">
+    <div class="openfs-tab active" onclick="switchTab('ask')">Ask</div>
+    <div class="openfs-tab" onclick="switchTab('map')">Link Map</div>
+    <div class="openfs-tab" onclick="switchTab('pages')">Pages</div>
+    <div class="openfs-tab" onclick="switchTab('recent')">Recent</div>
+    <div class="openfs-tab" onclick="switchTab('explorer')">Explorer</div>
+  </div>
+
+  <div id="tab-ask" class="openfs-panel active">
+    <div id="openfs-query-box">
+      <input id="openfs-q" placeholder="Ask the wiki anything..." />
+      <button class="openfs-btn primary" onclick="doQuery()">Ask</button>
+      <textarea id="openfs-answer" placeholder="Answer will appear here..." readonly></textarea>
+      <div id="openfs-citations" style="margin-top:.4em;font-size:.82em;color:#555;"></div>
+    </div>
+  </div>
+
+  <div id="tab-map" class="openfs-panel">
+    <div id="openfs-map-content">Click "Link Map" or the tab to load.</div>
+  </div>
+
+  <div id="tab-pages" class="openfs-panel">
+    <div id="openfs-pages-content">Loading...</div>
+  </div>
+
+  <div id="tab-recent" class="openfs-panel">
+    <div id="openfs-recent-content">Loading...</div>
+  </div>
+
+  <div id="tab-explorer" class="openfs-panel">
+    <div style="display:flex;gap:.5em;margin-bottom:.5em;">
+      <input id="openfs-grep-q" placeholder="grep across wiki files..." style="flex:1;padding:.35em .6em;border:1px solid #aaa;border-radius:3px;font-size:.88em;" />
+      <button class="openfs-btn primary" onclick="doGrep()">Grep</button>
+      <button class="openfs-btn" onclick="loadExplorer()">ls /wiki</button>
+    </div>
+    <div style="display:flex;gap:.8em;">
+      <div id="openfs-file-tree" style="width:200px;flex-shrink:0;font-size:.82em;border:1px solid #eee;border-radius:3px;padding:.4em;max-height:400px;overflow-y:auto;background:#f8f9fa;"></div>
+      <div id="openfs-file-content" style="flex:1;font-family:monospace;font-size:.82em;background:#1e1e1e;color:#d4d4d4;border-radius:4px;padding:.8em;max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;">Select a file or run grep...</div>
+    </div>
+  </div>
+
+  <div id="openfs-log"></div>
+</div>
+
+<script>
+const API = 'http://localhost:4322';
+const MW  = 'http://localhost:8082';
+
+window.logLine = function(msg) {
+  const el = document.getElementById('openfs-log');
+  el.textContent = new Date().toLocaleTimeString() + ' ' + msg + String.fromCharCode(10) + el.textContent;
+}
+function logLine(msg) { window.logLine(msg); }
+
+window.switchTab = function switchTab(name) {
+  document.querySelectorAll('.openfs-tab').forEach((t,i) => {
+    var names = ['ask','map','pages','recent','explorer'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.openfs-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'map') showMap();
+  if (name === 'pages') loadPages();
+  if (name === 'recent') loadRecent();
+  if (name === 'explorer') loadExplorer();
+}
+
+async function checkStatus() {
+  try {
+    const r = await fetch(API + '/status');
+    const d = await r.json();
+    const el = document.getElementById('openfs-status');
+    el.innerHTML = d.ok
+      ? '<span class="ok">✓ Sync server connected</span> — last sync: ' + (d.lastSync ? new Date(d.lastSync).toLocaleString() : 'never') +
+        (d.synthesizedCount != null ? ' · <b>' + d.synthesizedCount + '</b> pages mapped' : '')
+      : '<span class="err">✗ Not ready</span>';
+  } catch(e) {
+    document.getElementById('openfs-status').innerHTML =
+      '<span class="err">✗ Server offline</span> — run: <code>ANTHROPIC_API_KEY=... bun run packages/agent-wiki-mw/src/server.ts</code>';
+  }
+}
+
+window.syncPull = async function syncPull() {
+  logLine('Pulling from MediaWiki...');
+  await fetch(API + '/pull', {method:'POST'});
+  logLine('Pull queued — reload in a few seconds');
+}
+
+window.syncPush = async function syncPush() {
+  logLine('Pushing to MediaWiki...');
+  const r = await fetch(API + '/push', {method:'POST'});
+  const d = await r.json();
+  logLine('Push done: pushed=' + d.pushed + ' failed=' + d.failed);
+}
+
+window.syncRecent = async function syncRecent() {
+  logLine('Syncing recent changes...');
+  await fetch(API + '/sync-recent', {method:'POST'});
+  logLine('Sync recent queued');
+}
+
+window.showMap = async function showMap() {
+  const el = document.getElementById('openfs-map-content');
+  el.textContent = 'Loading link map...';
+  const r = await fetch(API + '/map');
+  const d = await r.json();
+
+  let html = '<b>Summary:</b> ' + d.summary.linked + ' linked &middot; ' +
+    d.summary.ofsOnly + ' OpenFS-only &middot; ' + d.summary.mwOnly + ' MW-only<br/><br/>';
+
+  html += '<b class="map-linked">Linked (OpenFS &harr; MW)</b>';
+  html += '<table class="map-table"><tr><th>OpenFS path</th><th>MW page</th><th>Action</th></tr>';
+  for (var li = 0; li < d.linked.length; li++) {
+    var l = d.linked[li];
+    var lt = l.mwTitle.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html += '<tr><td><code>' + l.openfsPath + '</code></td><td><a href="' + l.mwUrl + '">' + l.mwTitle + '</a></td>' +
+      '<td><button class="openfs-btn" onclick="resynthPage(\'' + lt + '\')">Re-synth</button></td></tr>';
+  }
+  html += '</table><br/>';
+
+  if (d.ofsOnly.length) {
+    html += '<b class="map-ofs-only">OpenFS only (not in MW yet)</b>';
+    html += '<table class="map-table"><tr><th>OpenFS path</th><th>Title</th><th>Action</th></tr>';
+    for (var oi = 0; oi < d.ofsOnly.length; oi++) {
+      var p = d.ofsOnly[oi];
+      var pt = p.openfsPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html += '<tr><td><code>' + p.openfsPath + '</code></td><td>' + p.openfsTitle + '</td>' +
+        '<td><button class="openfs-btn" onclick="pushPage(\'' + pt + '\')">Push to MW</button></td></tr>';
+    }
+    html += '</table><br/>';
+  }
+
+  if (d.mwOnly && d.mwOnly.length) {
+    var mwOnly = [];
+    for (var mi = 0; mi < d.mwOnly.length; mi++) {
+      if (d.mwOnly[mi] !== 'OpenFS Map') mwOnly.push(d.mwOnly[mi]);
+    }
+    if (mwOnly.length) {
+      html += '<b class="map-mw-only">MW only (not yet synthesized)</b>';
+      html += '<table class="map-table"><tr><th>MW title</th><th>Action</th></tr>';
+      for (var ti = 0; ti < mwOnly.length; ti++) {
+        var t = mwOnly[ti];
+        var tt = t.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += '<tr><td><a href="' + MW + '/wiki/' + encodeURIComponent(t.replace(/ /g,'_')) + '">' + t + '</a></td>' +
+          '<td><button class="openfs-btn" onclick="resynthPage(\'' + tt + '\')">Synth</button></td></tr>';
+      }
+      html += '</table>';
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+window.pushPage = async function pushPage(path) {
+  logLine('Pushing ' + path + ' to MW...');
+  const r = await fetch(API + '/push-page', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path})});
+  const d = await r.json();
+  logLine(d.ok ? 'Pushed: ' + d.title : 'Error: ' + d.error);
+  showMap();
+}
+
+window.resynthPage = async function resynthPage(title) {
+  logLine('Re-synthesizing ' + title + '...');
+  const r = await fetch(API + '/resynth', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title})});
+  const d = await r.json();
+  if (d.error) { logLine('Error: ' + d.error); return; }
+  logLine('Done: created=' + (d.pagesCreated||[]).length + ' updated=' + (d.pagesUpdated||[]).length + ' — map saved');
+  showMap();
+  checkStatus();
+}
+
+window.loadPages = async function loadPages() {
+  const r = await fetch(API + '/pages');
+  const pages = await r.json();
+  const el = document.getElementById('openfs-pages-content');
+  el.innerHTML = '<b>OpenFS wiki pages (' + pages.length + '):</b>' +
+    '<table class="map-table"><tr><th>Path</th><th>Title</th><th>Size</th></tr>' +
+    pages.map(p => '<tr><td><code>' + p.path + '</code></td><td>' + p.title + '</td><td>' + p.size + 'b</td></tr>').join('') +
+    '</table>';
+}
+
+window.doQuery = async function doQuery() {
+  var q = document.getElementById('openfs-q').value.trim();
+  if (!q) return;
+  document.getElementById('openfs-answer').value = 'Thinking...';
+  document.getElementById('openfs-citations').innerHTML = '';
+  logLine('Query: ' + q);
+  try {
+    var r = await fetch(API + '/query', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question:q})});
+    var d = await r.json();
+    document.getElementById('openfs-answer').value = d.answer || d.error || 'No answer';
+    var cites = d.citations || [];
+    if (cites.length) {
+      var html = '<b>Sources:</b> ';
+      for (var i = 0; i < cites.length; i++) {
+        var path = cites[i];
+        var title = path.replace(/^\/wiki\//,'').replace(/\.md$/,'').replace(/-/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase();});
+        html += '<a href="' + MW + '/wiki/' + encodeURIComponent(title.replace(/ /g,'_')) + '" target="_blank">' + title + '</a>';
+        if (i < cites.length - 1) html += ' &middot; ';
+      }
+      document.getElementById('openfs-citations').innerHTML = html;
+    }
+  } catch(e) {
+    document.getElementById('openfs-answer').value = 'Error: ' + e.message;
+  }
+}
+
+window.loadRecent = async function loadRecent() {
+  var el = document.getElementById('openfs-recent-content');
+  el.textContent = 'Loading recent changes...';
+  try {
+    var r = await fetch(API + '/recent-changes?limit=40');
+    var changes = await r.json();
+    var typeColor = { human: '#16a34a', source: '#2563eb', synthesized: '#9333ea' };
+    var typeLabel = { human: 'Human Edit', source: 'Source Page', synthesized: 'AI Synthesized' };
+    var html = '<b>Recent wiki changes</b> <span style="font-size:.8em;color:#555">(green=human &middot; blue=source &middot; purple=AI)</span><br/><br/>';
+    html += '<table class="map-table"><tr><th>Time</th><th>Page</th><th>User</th><th>Type</th><th>Action</th></tr>';
+    for (var i = 0; i < changes.length; i++) {
+      var c = changes[i];
+      var color = typeColor[c.type] || '#555';
+      var label = typeLabel[c.type] || c.type;
+      var ts = new Date(c.timestamp).toLocaleTimeString();
+      var action = '';
+      if (c.type === 'human' || c.type === 'source') {
+        var tt = c.title.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        action = '<button class="openfs-btn" onclick="resynthPage(\'' + tt + '\')">Re-synth</button>';
+      }
+      html += '<tr><td style="color:#888;font-size:.82em">' + ts + '</td>' +
+        '<td><a href="' + c.mwUrl + '" target="_blank">' + c.title + '</a></td>' +
+        '<td style="font-size:.85em">' + (c.user||'') + '</td>' +
+        '<td><span style="color:' + color + ';font-weight:700;font-size:.8em">' + label + '</span></td>' +
+        '<td>' + action + '</td></tr>';
+    }
+    html += '</table>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+}
+
+window.loadExplorer = async function loadExplorer() {
+  var tree = document.getElementById('openfs-file-tree');
+  tree.textContent = 'Loading...';
+  try {
+    var dirs = ['/wiki', '/sources'];
+    var html = '';
+    for (var di = 0; di < dirs.length; di++) {
+      var dir = dirs[di];
+      var r = await fetch(API + '/ls?dir=' + encodeURIComponent(dir));
+      var entries = await r.json();
+      html += '<div style="color:#888;font-size:.9em;margin:.3em 0 .1em;font-weight:700">' + dir + '/</div>';
+      for (var ei = 0; ei < entries.length; ei++) {
+        var entry = entries[ei];
+        var name = typeof entry === 'string' ? entry : (entry.path || entry);
+        var fullPath = name.startsWith('/') ? name : dir + '/' + name;
+        var shortName = fullPath.split('/').pop();
+        var fp = fullPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += '<div style="padding:.15em .2em;cursor:pointer;border-radius:2px" onmouseover="this.style.background=\'#e8e8e8\'" onmouseout="this.style.background=\'\'" onclick="catFile(\'' + fp + '\')">' +
+          '<span style="color:#569cd6">&#x1F4C4;</span> ' + shortName + '</div>';
+      }
+    }
+    tree.innerHTML = html || '<i>empty</i>';
+  } catch(e) {
+    tree.textContent = 'Error: ' + e.message;
+  }
+}
+
+window.catFile = async function catFile(path) {
+  var el = document.getElementById('openfs-file-content');
+  el.textContent = 'Loading ' + path + '...';
+  logLine('cat ' + path);
+  try {
+    var r = await fetch(API + '/cat?path=' + encodeURIComponent(path));
+    var d = await r.json();
+    if (d.error) { el.textContent = 'Error: ' + d.error; return; }
+    el.textContent = d.content;
+  } catch(e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+}
+
+window.doGrep = async function doGrep() {
+  var q = document.getElementById('openfs-grep-q').value.trim();
+  if (!q) return;
+  var el = document.getElementById('openfs-file-content');
+  el.textContent = 'grep "' + q + '" /wiki ...\n';
+  logLine('grep: ' + q);
+  try {
+    var r = await fetch(API + '/grep', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:q, dir:'/wiki'})});
+    var results = await r.json();
+    if (!results.length) { el.textContent = 'No matches for: ' + q; return; }
+    var out = 'grep "' + q + '" /wiki  (' + results.length + ' files)\n\n';
+    for (var i = 0; i < results.length; i++) {
+      var res = results[i];
+      out += '\x1b[36m' + res.path + '\x1b[0m\n';
+      for (var j = 0; j < res.matches.length; j++) {
+        out += '  L' + res.matches[j].num + ': ' + res.matches[j].line + '\n';
+      }
+      out += '\n';
+    }
+    el.textContent = out;
+  } catch(e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+}
+
+document.getElementById('openfs-q').addEventListener('keydown', e => { if (e.key === 'Enter') doQuery(); });
+checkStatus();
+setInterval(checkStatus, 30000);
+</script>
+</html>
+
+__NOTOC__

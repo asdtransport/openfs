@@ -1,0 +1,222 @@
+services:
+  # Chroma vector DB server
+  chroma:
+    image: chromadb/chroma:1.5.3
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/data
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # MinIO S3-compatible object storage (from minio-api project)
+  minio:
+    image: minio/minio:latest
+    container_name: openfs-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Pre-create the OpenFS bucket via minio/mc (pattern from minio-api)
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/openfs-playground --ignore-existing;
+      echo 'Bucket openfs-playground ready';
+      exit 0;
+      "
+
+  # @openfs/adapter-s3-api — full FastAPI S3 management API
+  adapter-s3-api:
+    build:
+      context: ./packages/adapter-s3-api
+      dockerfile: Dockerfile
+    container_name: openfs-adapter-s3-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=development
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECURE=False
+      - MINIO_REGION=us-east-1
+      - API_PREFIX=/api/v1
+      - CORS_ORIGINS=["*"]
+      - ALLOWED_HOSTS=["*"]
+      - LOG_LEVEL=INFO
+      - SECRET_KEY=openfs-minio-api-dev-key
+    depends_on:
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    volumes:
+      - ./packages/adapter-s3-api:/app
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # @openfs/server — Hono API (port 3456)
+  openfs-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openfs-server
+    depends_on:
+      chroma:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+      adapter-s3-api:
+        condition: service_healthy
+    ports:
+      - "3456:3456"
+    environment:
+      - CHROMA_URL=http://chroma:8000
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=openfs-playground
+      - MINIO_API_URL=http://adapter-s3-api:8080
+      - NO_PROXY=chroma,minio,adapter-s3-api,localhost,127.0.0.1
+      - no_proxy=chroma,minio,adapter-s3-api,localhost,127.0.0.1
+      - PORT=3456
+    volumes:
+      - ./:/app
+      - openfs_modules:/app/node_modules
+    command: >
+      sh -c "[ -d node_modules/.pnpm ] || pnpm install --frozen-lockfile && bun run --hot packages/server/src/index.ts"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3456/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # @openfs/playground — Astro UI (port 4321)
+  openfs-playground:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openfs-playground
+    depends_on:
+      openfs-server:
+        condition: service_healthy
+    ports:
+      - "4321:4321"
+    environment:
+      - PUBLIC_API_URL=http://openfs-server:3456
+    volumes:
+      - ./:/app
+      - openfs_modules:/app/node_modules
+    command: >
+      sh -c "[ -d node_modules/.pnpm ] || pnpm install --frozen-lockfile && pnpm --filter @openfs/playground dev --host 0.0.0.0 --allowed-hosts all"
+
+  # OpenFS ↔ MediaWiki sync server (port 4322)
+  agent-wiki-mw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openfs-agent-wiki-mw
+    ports:
+      - "4322:4322"
+    environment:
+      - MW_URL=http://mediawiki
+      - MW_PUBLIC_URL=${MW_PUBLIC_URL:-http://localhost:8082}
+      - MW_USER=Derek
+      - MW_PASS=Yugioh4444!
+      - PORT=4322
+      - SYNC_INTERVAL=60
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMA_URL=http://chroma:8000
+      - OPENFS_DB_PATH=/data/openfs.db
+      - MINIO_API_URL=http://adapter-s3-api:8080
+      - MINIO_S3_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    depends_on:
+      - mediawiki
+      - adapter-s3-api
+    volumes:
+      - ./:/app
+      - openfs_modules:/app/node_modules
+      - openfs_data:/data
+    command: >
+      sh -c "[ -d node_modules/.pnpm ] || pnpm install --frozen-lockfile && bun run packages/agent-wiki-mw/src/server.ts"
+
+  # Derek Davis personal wiki — MediaWiki 1.43 on port 8082
+  mediawiki:
+    build:
+      context: ./packages/mediawiki
+      dockerfile: Dockerfile
+    container_name: openfs-mediawiki
+    ports:
+      - "8082:80"
+    volumes:
+      - mediawiki_data:/var/www/data
+      - mediawiki_images:/var/www/html/images
+    environment:
+      MW_SERVER: "${MW_PUBLIC_URL:-http://localhost:8082}"
+    restart: unless-stopped
+
+  # OpenFS Telegram bot (optional — needs TELEGRAM_BOT_TOKEN)
+  bot-telegram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openfs-bot-telegram
+    profiles: ["telegram"]
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENFS_API_URL=http://agent-wiki-mw:4322
+      - MW_PUBLIC_URL=http://localhost:8082
+      - ALLOWED_CHAT_IDS=${TELEGRAM_ALLOWED_CHAT_IDS:-}
+    depends_on:
+      - agent-wiki-mw
+    volumes:
+      - ./:/app
+      - openfs_modules:/app/node_modules
+    command: >
+      sh -c "cd packages/bot-telegram && bun install && bun run src/bot.ts"
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+  minio_data:
+  openfs_modules:
+  openfs_data:
+  mediawiki_data:
+  mediawiki_images:

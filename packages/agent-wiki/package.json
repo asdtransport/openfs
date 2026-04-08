@@ -1,0 +1,22 @@
+{
+  "name": "@openfs/agent-wiki",
+  "version": "0.1.0",
+  "description": "Persistent, compounding AI knowledge base on top of OpenFS — Karpathy-style wiki that synthesizes, queries, and lints itself.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@openfs/wasm": "workspace:*",
+    "@openfs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "MIT"
+}

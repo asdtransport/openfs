@@ -1,0 +1,1114 @@
+---
+import AppShell from '../components/AppShell.astro';
+---
+<AppShell title="Terminal" active="terminal">
+  <!-- Topbar: adapter toggle + connection status -->
+  <div slot="topbar-actions" style="display:flex;align-items:center;gap:0.5rem">
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="wasm">WASM</button>
+      <button class="mode-btn" data-mode="server">Server</button>
+    </div>
+    <div class="adapter-toggle" id="adapter-toggle-group">
+      <button class="adapter-btn active" data-adapter="sqlite">SQLite</button>
+      <button class="adapter-btn" data-adapter="chroma">Chroma</button>
+      <button class="adapter-btn" data-adapter="s3">S3</button>
+    </div>
+    <span class="status-pill">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">connecting...</span>
+    </span>
+  </div>
+
+  <!-- Terminal content -->
+  <div class="terminal-page">
+    <div class="chips-bar chips-wasm">
+      <span class="chip" data-cmd="ls /docs">ls /docs</span>
+      <span class="chip" data-cmd="grep access_token /docs">grep access_token /docs</span>
+      <span class="chip" data-cmd="search how do I authenticate">search auth</span>
+      <span class="chip" data-cmd="s3 buckets">s3 buckets</span>
+      <span class="chip" data-cmd="stats">stats</span>
+      <span class="chip" data-cmd="help">help</span>
+    </div>
+    <div class="chips-bar chips-server" style="display:none">
+      <span class="chip" data-cmd="pages">pages</span>
+      <span class="chip" data-cmd="ask what is this wiki about">ask …</span>
+      <span class="chip" data-cmd="agent find pages about authentication">agent …</span>
+      <span class="chip" data-cmd="lint">lint</span>
+      <span class="chip" data-cmd="log">log</span>
+      <span class="chip" data-cmd="embed wiki">embed wiki</span>
+      <span class="chip" data-cmd="help">help</span>
+    </div>
+
+    <div class="terminal-wrapper">
+      <div class="terminal-chrome">
+        <div class="traffic-lights">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="terminal-title" id="terminal-title">openfs — just-bash + SQLite (FTS5)</span>
+      </div>
+      <div id="terminal-container"></div>
+    </div>
+  </div>
+</AppShell>
+
+<style>
+  /* ── Mode toggle (WASM / Server) ── */
+  .mode-toggle {
+    display: flex;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(139,92,246,0.4);
+  }
+  .mode-btn {
+    padding: 0.28rem 0.7rem;
+    font-size: 0.72rem;
+    font-family: var(--font);
+    background: transparent;
+    color: rgba(139,92,246,0.55);
+    border: none;
+    cursor: pointer;
+    transition: all 0.1s;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .mode-btn + .mode-btn { border-left: 1px solid rgba(139,92,246,0.3); }
+  .mode-btn.active { background: rgba(139,92,246,0.18); color: #a78bfa; }
+  .mode-btn:hover:not(.active) { background: rgba(139,92,246,0.08); color: rgba(139,92,246,0.8); }
+
+  /* ── Adapter toggle (lives in dark topbar) ── */
+  .adapter-toggle {
+    display: flex;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .adapter-btn {
+    padding: 0.28rem 0.7rem;
+    font-size: 0.72rem;
+    font-family: var(--font);
+    background: transparent;
+    color: rgba(255,255,255,0.45);
+    border: none;
+    cursor: pointer;
+    transition: all 0.1s;
+    font-weight: 500;
+  }
+  .adapter-btn + .adapter-btn { border-left: 1px solid rgba(255,255,255,0.12); }
+  .adapter-btn.active { background: rgba(255,255,255,0.12); color: white; }
+  .adapter-btn:hover:not(.active) { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+
+  /* ── Page layout ── */
+  .terminal-page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1.25rem;
+    gap: 0.75rem;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Chips ── */
+  .chips-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .chip {
+    font-size: 0.73rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.1s;
+    font-family: var(--mono);
+  }
+  .chip:hover { border-color: var(--navy); color: var(--navy); background: var(--navy-light); }
+
+  /* ── Terminal window ── */
+  .terminal-wrapper {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .terminal-chrome {
+    display: flex;
+    align-items: center;
+    padding: 0.55rem 1rem;
+    background: #1a1a26;
+    border-bottom: 1px solid #0d0d14;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .traffic-lights {
+    display: flex;
+    gap: 6px;
+  }
+  .traffic-lights span {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+  }
+  .traffic-lights span:nth-child(1) { background: #ff5f57; }
+  .traffic-lights span:nth-child(2) { background: #febc2e; }
+  .traffic-lights span:nth-child(3) { background: #28c840; }
+  .terminal-title {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.3);
+    font-family: var(--mono);
+    margin-left: 0.25rem;
+  }
+  #terminal-container {
+    flex: 1;
+    padding: 0.25rem;
+    background: #12121a;
+    min-height: 0;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  import { Terminal } from "@xterm/xterm";
+  import { FitAddon } from "@xterm/addon-fit";
+  import { WebLinksAddon } from "@xterm/addon-web-links";
+  import "@xterm/xterm/css/xterm.css";
+
+  // ─── Mode state ──────────────────────────────────────────────────────────
+  let currentMode = "wasm";
+  const SERVER_URL = "http://localhost:4322";
+
+  async function serverApi(method, path, body) {
+    try {
+      const opts = { method, headers: { "Content-Type": "application/json" } };
+      if (body && method !== "GET") opts.body = JSON.stringify(body);
+      const res = await fetch(`${SERVER_URL}${path}`, opts);
+      const ct = res.headers.get("content-type") || "";
+      let data;
+      if (ct.includes("application/json")) data = await res.json();
+      else data = { text: await res.text() };
+      if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
+      return { ok: true, data };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
+
+  // ─── Adapter state ────────────────────────────────────────────────────────
+  let currentAdapter = "sqlite";
+  const ADAPTER_INFO = {
+    sqlite: { label: "SQLite (FTS5)",      prompt: "\x1b[38;5;141m$\x1b[0m ", color: "141" },
+    chroma: { label: "Chroma ($contains)", prompt: "\x1b[38;5;208m$\x1b[0m ", color: "208" },
+    s3:     { label: "S3/MinIO",           prompt: "\x1b[38;5;48m$\x1b[0m ",  color: "48"  },
+  };
+  function getPrompt() { return ADAPTER_INFO[currentAdapter].prompt; }
+
+  // ─── Terminal setup ───────────────────────────────────────────────────────
+  const term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    fontFamily: '"JetBrains Mono", "SF Mono", "Fira Code", "Cascadia Code", monospace',
+    theme: {
+      background: "#12121a", foreground: "#e0e0e8", cursor: "#b8862e",
+      selectionBackground: "#b8862e44",
+      black: "#12121a",   red: "#f87171",   green: "#4ade80",  yellow: "#fbbf24",
+      blue: "#60a5fa",    magenta: "#c084fc", cyan: "#22d3ee", white: "#e0e0e8",
+      brightBlack: "#6b6b80", brightRed: "#fca5a5", brightGreen: "#86efac",
+      brightYellow: "#fde68a", brightBlue: "#93c5fd", brightMagenta: "#d8b4fe",
+      brightCyan: "#67e8f9", brightWhite: "#ffffff",
+    },
+    allowProposedApi: true,
+  });
+
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(new WebLinksAddon());
+
+  const container = document.getElementById("terminal-container");
+  term.open(container);
+  fitAddon.fit();
+  window.addEventListener("resize", () => fitAddon.fit());
+
+  container.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData("text");
+    if (text && !running) {
+      const clean = text.replace(/[\r\n]+/g, " ").trim();
+      commandBuffer += clean;
+      term.write(clean);
+    }
+  });
+
+  term.attachCustomKeyEventHandler((e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "v") return false;
+    if ((e.metaKey || e.ctrlKey) && e.key === "c" && term.hasSelection()) return false;
+    return true;
+  });
+
+  // ─── State ────────────────────────────────────────────────────────────────
+  let commandBuffer = "";
+  let history = [];
+  let historyIndex = -1;
+  let running = false;
+
+  const dot        = document.getElementById("status-dot");
+  const statusText = document.getElementById("status-text");
+  const termTitle  = document.getElementById("terminal-title");
+
+  // ─── Output helpers ───────────────────────────────────────────────────────
+  const c = {
+    bold:   (s) => `\x1b[1m${s}\x1b[0m`,
+    dim:    (s) => `\x1b[38;5;243m${s}\x1b[0m`,
+    accent: (s) => `\x1b[38;5;141m${s}\x1b[0m`,
+    green:  (s) => `\x1b[32m${s}\x1b[0m`,
+    red:    (s) => `\x1b[31m${s}\x1b[0m`,
+    yellow: (s) => `\x1b[33m${s}\x1b[0m`,
+    cyan:   (s) => `\x1b[36m${s}\x1b[0m`,
+    orange: (s) => `\x1b[38;5;208m${s}\x1b[0m`,
+  };
+
+  function writeln(s = "") { term.writeln(s); }
+  function write(s)        { term.write(s); }
+
+  function writeJson(obj) {
+    const lines = JSON.stringify(obj, null, 2).split("\n");
+    for (const line of lines) writeln(line);
+  }
+
+  function writeTable(rows, headers) {
+    if (!rows.length) { writeln(c.dim("  (empty)")); return; }
+    const cols = headers.map((h) => ({
+      key: h,
+      width: Math.max(h.length, ...rows.map(r => String(r[h] ?? "").length)),
+    }));
+    const header = cols.map(col => col.key.padEnd(col.width)).join("  ");
+    const sep    = cols.map(col => "─".repeat(col.width)).join("  ");
+    writeln(c.dim(header));
+    writeln(c.dim(sep));
+    for (const row of rows) {
+      writeln(cols.map(col => String(row[col.key] ?? "").padEnd(col.width)).join("  "));
+    }
+  }
+
+  function writeError(msg) { writeln(c.red(`Error: ${msg}`)); }
+  function writeOk(msg)    { writeln(c.green(`✓ ${msg}`)); }
+
+  // ─── API helpers ──────────────────────────────────────────────────────────
+  async function api(method, path, body) {
+    try {
+      const opts = { method, headers: { "Content-Type": "application/json" } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(path, opts);
+      let data;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        data = { detail: text };
+      }
+      if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
+      return { ok: true, data };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
+
+  async function fsExec(command) {
+    return api("POST", "/api/fs/exec", { command, adapter: currentAdapter });
+  }
+
+  // ─── Mode switch ──────────────────────────────────────────────────────────
+  function switchMode(name) {
+    if (name === currentMode) return;
+    currentMode = name;
+    document.querySelectorAll(".mode-btn").forEach(b => {
+      b.classList.toggle("active", b.getAttribute("data-mode") === name);
+    });
+    const adapterGroup = document.getElementById("adapter-toggle-group");
+    adapterGroup.style.display = name === "wasm" ? "" : "none";
+    document.querySelector(".chips-wasm").style.display = name === "wasm" ? "flex" : "none";
+    document.querySelector(".chips-server").style.display = name === "server" ? "flex" : "none";
+    if (name === "wasm") {
+      const info = ADAPTER_INFO[currentAdapter];
+      termTitle.textContent = `openfs — just-bash + ${info.label}`;
+      writeln(c.accent("⚡ WASM mode — just-bash + SQLite / Chroma / S3"));
+    } else {
+      termTitle.textContent = "openfs — Wiki server (localhost:4322)";
+      writeln(c.cyan("🌐 Server mode — MediaWiki sync server  ") + c.dim("localhost:4322"));
+    }
+  }
+
+  // ─── Server command router ────────────────────────────────────────────────
+  async function runServerCommand(input) {
+    const parts = input.trim().split(/\s+/);
+    const cmd   = parts[0].toLowerCase();
+    const args  = parts.slice(1);
+
+    if (cmd === "l") {
+      const dir = args[0] || "/";
+      const r = await serverApi("GET", `/fs/ls?dir=${encodeURIComponent(dir)}`);
+      if (!r.ok) { writeError(r.error); return; }
+      for (const e of r.data.entries || []) writeln(`  ${e}`);
+      return;
+    }
+
+    if (["ls","cat","head","tail","grep","stat","find","wc","echo","pwd"].includes(cmd)) {
+      // Auto-add -r to grep when no -r/-R flag present (avoids "Is a directory" errors)
+      let command = input;
+      if (cmd === "grep" && !/(^|\s)-[a-zA-Z]*[rR]/.test(input)) {
+        command = "grep -r" + input.slice(4);
+      }
+      const r = await serverApi("POST", "/fs/exec", { command });
+      if (!r.ok) { writeError(r.error); return; }
+      if (r.data.stdout) write(r.data.stdout.replace(/\r?\n/g, "\r\n"));
+      if (r.data.stderr) writeln(c.red(r.data.stderr.replace(/\r?\n/g, "\r\n")));
+      return;
+    }
+
+    if (cmd === "stats") {
+      writeln(c.dim("Fetching server OpenFS stats..."));
+      const r = await serverApi("GET", "/fs/stats");
+      if (!r.ok) { writeError(r.error); return; }
+      writeJson(r.data);
+      return;
+    }
+
+    if (cmd === "pages") {
+      writeln(c.dim("Fetching wiki pages..."));
+      const r = await serverApi("GET", "/pages");
+      if (!r.ok) { writeError(r.error); return; }
+      const pages = Array.isArray(r.data) ? r.data : (r.data.pages || []);
+      for (const p of pages) writeln(`  ${c.accent(typeof p === "string" ? p : (p.title || p.page))}`);
+      writeln(c.dim(`  ${pages.length} page(s)`));
+      return;
+    }
+
+    if (cmd === "pull") {
+      writeln(c.dim("Pulling from MediaWiki..."));
+      const r = await serverApi("POST", "/pull", {});
+      if (!r.ok) { writeError(r.error); return; }
+      writeOk(`Pull complete${r.data.synced !== undefined ? ": " + r.data.synced + " pages" : ""}`);
+      return;
+    }
+
+    if (cmd === "push") {
+      writeln(c.dim("Pushing to MediaWiki..."));
+      const r = await serverApi("POST", "/push", {});
+      if (!r.ok) { writeError(r.error); return; }
+      writeOk("Push complete");
+      return;
+    }
+
+    if (cmd === "grep") {
+      const pattern = args[0];
+      if (!pattern) { writeError("usage: grep <pattern> [path...]"); return; }
+      const paths = args.slice(1);
+      writeln(c.dim(`Grepping wiki for "${pattern}"...`));
+      const r = await serverApi("POST", "/grep", { pattern, paths });
+      if (!r.ok) { writeError(r.error); return; }
+      const results = r.data.results || [];
+      for (const res of results) {
+        const loc = res.path || res.title || "";
+        const line = res.line || res.excerpt || "";
+        writeln(`${c.accent(loc)}${res.line_number ? ":" + res.line_number : ""} ${line}`);
+      }
+      if (!results.length) writeln(c.dim("  No matches"));
+      return;
+    }
+
+    if (cmd === "search") {
+      const query = args.join(" ");
+      if (!query) { writeError("usage: search <query>"); return; }
+      writeln(c.dim(`FTS5 search: "${query}"...`));
+      const r = await serverApi("POST", "/fs/search", { query });
+      if (!r.ok) { writeError(r.error); return; }
+      const results = r.data.results || [];
+      for (const res of results) writeln(`  ${c.accent(res.path)}`);
+      if (!results.length) writeln(c.dim("  No results"));
+      return;
+    }
+
+    if (cmd === "semantic") {
+      const query = args.join(" ");
+      if (!query) { writeError("usage: semantic <query>"); return; }
+      writeln(c.dim(`Semantic search: "${query}"...`));
+      const r = await serverApi("POST", "/kg-search", { query, topK: 8 });
+      if (!r.ok) { writeError(r.error); return; }
+      const results = r.data.results || [];
+      for (const res of results) {
+        const pct = Math.round((res.score || 0) * 100);
+        writeln(`  ${c.accent(res.path || res.title)}  ${c.dim(pct + "%")}`);
+        if (res.excerpt) writeln(c.dim(`    ${res.excerpt.slice(0, 100)}`));
+      }
+      if (!results.length) writeln(c.dim("  No results"));
+      return;
+    }
+
+    if (cmd === "ask") {
+      const question = args.join(" ");
+      if (!question) { writeError("usage: ask <question>"); return; }
+      writeln(c.dim(`Asking: "${question}"...`));
+      const r = await serverApi("POST", "/query", { question });
+      if (!r.ok) { writeError(r.error); return; }
+      writeln("");
+      writeln((r.data.answer || r.data.response || "").replace(/\r?\n/g, "\r\n"));
+      if (r.data.citations?.length) {
+        writeln("");
+        writeln(c.dim("Citations:"));
+        for (const cit of r.data.citations) {
+          const pct = Math.round((cit.score || 0) * 100);
+          writeln(c.dim(`  • ${cit.title || cit.path}  ${pct}%`));
+        }
+      }
+      return;
+    }
+
+    if (cmd === "agent") {
+      const question = args.join(" ");
+      if (!question) { writeError("usage: agent <question>"); return; }
+      writeln(c.dim(`Agent: "${question}"...`));
+      const r = await serverApi("POST", "/query-agent", { question });
+      if (!r.ok) { writeError(r.error); return; }
+      writeln("");
+      writeln((r.data.answer || r.data.response || "").replace(/\r?\n/g, "\r\n"));
+      if (r.data.tools_used?.length) {
+        writeln(c.dim(`  Tools: ${r.data.tools_used.join(", ")}`));
+      }
+      return;
+    }
+
+    if (cmd === "lint") {
+      writeln(c.dim("Running lint checks..."));
+      const r = await serverApi("POST", "/lint", {});
+      if (!r.ok) { writeError(r.error); return; }
+      const issues = r.data.issues || [];
+      if (!issues.length) { writeOk("No issues found"); return; }
+      for (const issue of issues) {
+        const col = issue.severity === "error" ? c.red : issue.severity === "warn" ? c.yellow : c.dim;
+        writeln(`  ${col(`[${issue.rule}]`)} ${issue.detail}`);
+        if (issue.path) writeln(c.dim(`    → ${issue.path}`));
+        if (issue.fix)  writeln(c.dim(`    fix: ${issue.fix}`));
+      }
+      writeln(c.dim(`  ${issues.length} issue(s)`));
+      return;
+    }
+
+    if (cmd === "log") {
+      if (args[0] === "append") {
+        const text = args.slice(1).join(" ");
+        if (!text) { writeError("usage: log append <text>"); return; }
+        const r = await serverApi("POST", "/log/append", { text });
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk("Log entry appended");
+        return;
+      }
+      writeln(c.dim("Fetching log..."));
+      const r = await serverApi("GET", "/log");
+      if (!r.ok) { writeError(r.error); return; }
+      const content = r.data.content || r.data.text || "";
+      writeln(content.replace(/\r?\n/g, "\r\n"));
+      return;
+    }
+
+    if (cmd === "embed") {
+      const sub = args[0] || "wiki";
+      if (sub === "wiki") {
+        writeln(c.dim("Embedding wiki pages → Chroma..."));
+        const r = await serverApi("POST", "/kg-ingest-wiki", {});
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`Embedded ${r.data.count ?? "?"} pages`);
+      } else if (sub === "s3") {
+        writeln(c.dim("Embedding S3 objects → Chroma..."));
+        const r = await serverApi("POST", "/kg-ingest-s3", {});
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`Embedded ${r.data.count ?? "?"} objects`);
+      } else {
+        writeError("usage: embed wiki|s3");
+      }
+      return;
+    }
+
+    if (cmd === "expand") {
+      const topic = args.join(" ");
+      if (!topic) { writeError("usage: expand <topic>"); return; }
+      writeln(c.dim(`Expanding topic: "${topic}"...`));
+      const r = await serverApi("POST", "/kg-expand", { topic });
+      if (!r.ok) { writeError(r.error); return; }
+      writeOk(`Expanded: ${r.data.title || topic}`);
+      if (r.data.content) writeln(c.dim(r.data.content.slice(0, 300).replace(/\r?\n/g, "\r\n") + "…"));
+      return;
+    }
+
+    if (cmd === "help") {
+      writeln(c.bold("OpenFS Server CLI — Wiki sync server commands"));
+      writeln(c.dim("Connected to agent-wiki-mw  localhost:4322"));
+      writeln("");
+      writeln(c.dim("── Wiki ──────────────────────────────────────────────────────────────"));
+      writeln(`  ${c.cyan("pages")}                      List all wiki pages`);
+      writeln(`  ${c.cyan("pull")}                       Pull changes from MediaWiki`);
+      writeln(`  ${c.cyan("push")}                       Push changes to MediaWiki`);
+      writeln("");
+      writeln(c.dim("── Filesystem ────────────────────────────────────────────────────────"));
+      writeln(`  ${c.cyan("ls [dir]")}                   List server OpenFS directory`);
+      writeln(`  ${c.cyan("cat <path>")}                 Read a file`);
+      writeln(`  ${c.cyan("grep <pattern> [path]")}      Grep server OpenFS files`);
+      writeln(`  ${c.cyan("stats")}                      Server OpenFS DB stats`);
+      writeln(`  ${c.cyan("search <query>")}             FTS5 keyword search`);
+      writeln("");
+      writeln(c.dim("── Search & Q&A ──────────────────────────────────────────────────────"));
+      writeln(`  ${c.cyan("semantic <query>")}           Semantic search (Chroma)`);
+      writeln(`  ${c.cyan("ask <question>")}             RAG Q&A (fast)`);
+      writeln(`  ${c.cyan("agent <question>")}           Agentic Q&A (tool-calling)`);
+      writeln("");
+      writeln(c.dim("── Knowledge Graph ───────────────────────────────────────────────────"));
+      writeln(`  ${c.cyan("embed wiki")}                 Embed wiki pages → Chroma`);
+      writeln(`  ${c.cyan("embed s3")}                   Embed S3 objects → Chroma`);
+      writeln(`  ${c.cyan("expand <topic>")}             LLM-expand a topic into a page`);
+      writeln("");
+      writeln(c.dim("── Health ────────────────────────────────────────────────────────────"));
+      writeln(`  ${c.cyan("lint")}                       Run L1-L10 lint checks`);
+      writeln(`  ${c.cyan("log")}                        Show activity log`);
+      writeln(`  ${c.cyan("log append <text>")}          Append log entry`);
+      writeln("");
+      writeln(c.dim("── Terminal ──────────────────────────────────────────────────────────"));
+      writeln(`  ${c.accent("clear")} / Ctrl+L             Clear screen`);
+      writeln(`  ${c.accent("↑ ↓")}                        Command history`);
+      writeln("");
+      return;
+    }
+
+    if (cmd === "clear") { term.clear(); return; }
+
+    writeln(c.red(`command not found: ${cmd}`));
+    writeln(c.dim("  Try: help | pages | pull | ask <q> | agent <q> | lint | search <q>"));
+  }
+
+  // ─── Command router ───────────────────────────────────────────────────────
+  async function runCommand(input) {
+    if (currentMode === "server") return runServerCommand(input);
+    const parts = input.trim().split(/\s+/);
+    const cmd   = parts[0].toLowerCase();
+    const args  = parts.slice(1);
+
+    if (["ls","cat","head","tail","grep","stat","find","wc","echo","pwd"].includes(cmd)) {
+      const r = await fsExec(input);
+      if (!r.ok) { writeError(r.error); return; }
+      if (r.data.stdout) {
+        const lines = r.data.stdout.replace(/\r?\n/g, "\r\n");
+        write(lines);
+        if (!lines.endsWith("\r\n")) writeln();
+      }
+      if (r.data.stderr) writeln(c.red(r.data.stderr.replace(/\r?\n/g, "\r\n")));
+      if (r.data.optimized) writeln(c.dim(`  ↳ grep optimized (${r.data.candidates ?? "?"} candidate files)`));
+      return;
+    }
+
+    if (cmd === "search") {
+      const query = args.join(" ");
+      if (!query) { writeError("usage: search <query>"); return; }
+      writeln(c.dim(`Searching for "${query}"...`));
+      const r = await api("POST", "/api/fs/search", { query });
+      if (!r.ok) { writeError(r.error); return; }
+      const results = r.data.results || [];
+      if (!results.length) { writeln(c.dim("  No results")); return; }
+      for (const result of results) writeln(`  ${c.accent(result.path)}`);
+      writeln(c.dim(`  ${results.length} file(s) matched`));
+      return;
+    }
+
+    if (cmd === "readdir") {
+      const path = args[0] || "/";
+      const r = await api("GET", `/api/fs/readdir?path=${encodeURIComponent(path)}&adapter=${currentAdapter}`);
+      if (!r.ok) { writeError(r.error); return; }
+      const entries = r.data.entries || [];
+      for (const e of entries) writeln(`  ${e}`);
+      writeln(c.dim(`  ${entries.length} entries in ${path}`));
+      return;
+    }
+
+    if (cmd === "stats") {
+      const r = await api("GET", "/api/admin/stats");
+      if (!r.ok) { writeError(r.error); return; }
+      writeJson(r.data);
+      return;
+    }
+
+    if (cmd === "ingest") {
+      const path    = args[0];
+      const content = args.slice(1).join(" ");
+      if (!path || !content) { writeError("usage: ingest <path> <content>"); return; }
+      const r = await api("POST", "/api/admin/ingest", { files: { [path]: content } });
+      if (!r.ok) { writeError(r.error); return; }
+      writeOk(`Ingested ${r.data.ingested} file(s)`);
+      return;
+    }
+
+    if (cmd === "s3") {
+      const sub  = args[0] || "help";
+      const rest = args.slice(1);
+
+      if (sub === "help" || sub === "--help") {
+        writeln(c.bold("s3 — S3/MinIO management commands"));
+        writeln("");
+        writeln(c.dim("── Buckets ──────────────────────────────────────────────────────────"));
+        writeln("  " + c.cyan("s3 buckets") + "                    List all buckets");
+        writeln("  " + c.cyan("s3 mk <bucket>") + "                Create a new bucket");
+        writeln("  " + c.cyan("s3 rm <bucket>") + "                Delete a bucket");
+        writeln("");
+        writeln(c.dim("── Objects ──────────────────────────────────────────────────────────"));
+        writeln("  " + c.cyan("s3 ls <bucket>[/<prefix>]") + "     List objects");
+        writeln("  " + c.cyan("s3 cat <bucket>/<key>") + "         Read object content");
+        writeln("  " + c.cyan("s3 put <bucket> <key> <text>") + "  Write a text object");
+        writeln("  " + c.cyan("s3 rm-obj <bucket> <key>") + "      Delete an object");
+        writeln("");
+        writeln(c.dim("── Monitoring ───────────────────────────────────────────────────────"));
+        writeln("  " + c.cyan("s3 health") + "                     MinIO liveness check");
+        writeln("  " + c.cyan("s3 metrics") + "                    Cluster metrics");
+        writeln("  " + c.cyan("s3 dashboard") + "                  Storage dashboard");
+        writeln("  " + c.cyan("s3 analytics") + "                  Usage analytics");
+        writeln("");
+        writeln(c.dim("── IAM ──────────────────────────────────────────────────────────────"));
+        writeln("  " + c.cyan("s3 iam") + "                        List IAM users");
+        writeln("  " + c.cyan("s3 iam add <user> <pass>") + "      Create IAM user");
+        writeln("");
+        return;
+      }
+
+      if (sub === "buckets") {
+        const r = await api("GET", "/api/s3/buckets");
+        if (!r.ok) { writeError(r.error); return; }
+        const buckets = Array.isArray(r.data) ? r.data : (r.data.buckets || []);
+        if (!buckets.length) { writeln(c.dim("  No buckets")); return; }
+        writeTable(buckets, ["name", "creation_date"]);
+        return;
+      }
+
+      if (sub === "mk") {
+        const name = rest[0];
+        if (!name) { writeError("usage: s3 mk <bucket>"); return; }
+        const r = await api("POST", "/api/s3/buckets", { name });
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`Bucket "${name}" created`);
+        return;
+      }
+
+      if (sub === "rm") {
+        const name = rest[0];
+        if (!name) { writeError("usage: s3 rm <bucket>"); return; }
+        const r = await api("DELETE", `/api/s3/buckets/${name}`);
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`Bucket "${name}" deleted`);
+        return;
+      }
+
+      if (sub === "ls") {
+        const arg = rest[0] || "openfs-playground";
+        const slashIdx = arg.indexOf("/");
+        const bucket = slashIdx === -1 ? arg : arg.slice(0, slashIdx);
+        const prefix = slashIdx === -1 ? "" : arg.slice(slashIdx + 1);
+        const qs = `recursive=true${prefix ? `&prefix=${encodeURIComponent(prefix)}` : ""}`;
+        const r = await api("GET", `/api/s3/objects/objects/list/${bucket}?${qs}`);
+        if (!r.ok) { writeError(r.error); return; }
+        const objects = Array.isArray(r.data) ? r.data : (r.data.objects || []);
+        if (!objects.length) { writeln(c.dim("  (empty bucket)")); return; }
+        writeTable(objects.map(o => ({
+          name: o.name || o.object_name || "",
+          size: o.size ?? 0,
+          modified: (o.last_modified || "").slice(0, 19),
+        })), ["name", "size", "modified"]);
+        return;
+      }
+
+      if (sub === "cat" || sub === "get") {
+        const arg = rest[0];
+        if (!arg) { writeError("usage: s3 cat <bucket>/<key>"); return; }
+        const slashIdx = arg.indexOf("/");
+        if (slashIdx === -1) { writeError("usage: s3 cat <bucket>/<key>"); return; }
+        const bucket = arg.slice(0, slashIdx);
+        const key = arg.slice(slashIdx + 1);
+        try {
+          const res = await fetch(
+            `/api/s3/objects/objects/download/${bucket}?object_name=${encodeURIComponent(key)}`,
+            { headers: { Authorization: "Bearer demo-token" } }
+          );
+          if (!res.ok) { writeError(`${res.status} — object not found`); return; }
+          const text = await res.text();
+          writeln(text.replace(/\r?\n/g, "\r\n"));
+        } catch (err) {
+          writeError(err.message);
+        }
+        return;
+      }
+
+      if (sub === "put") {
+        const [bucket, key, ...textParts] = rest;
+        const content = textParts.join(" ");
+        if (!bucket || !key || !content) {
+          writeError("usage: s3 put <bucket> <key> <text content>");
+          return;
+        }
+        const r = await api("POST", `/api/s3/objects/objects/put/${bucket}`, { key, content });
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`${key} → ${bucket} (${r.data.size} bytes)`);
+        return;
+      }
+
+      if (sub === "rm-obj") {
+        const [bucket, key] = rest;
+        if (!bucket || !key) { writeError("usage: s3 rm-obj <bucket> <key>"); return; }
+        const r = await api("DELETE", `/api/s3/objects/${bucket}?object_name=${encodeURIComponent(key)}`);
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`Deleted ${key} from ${bucket}`);
+        return;
+      }
+
+      if (sub === "health") {
+        const r = await api("GET", "/api/s3/monitoring/health");
+        if (!r.ok) { writeError(r.error); return; }
+        writeJson(r.data);
+        return;
+      }
+
+      if (sub === "metrics") {
+        const r = await api("GET", "/api/s3/monitoring/metrics");
+        if (!r.ok) { writeError(r.error); return; }
+        writeJson(r.data);
+        return;
+      }
+
+      if (sub === "dashboard") {
+        const r = await api("GET", "/api/s3/dashboard/");
+        if (!r.ok) { writeError(r.error); return; }
+        writeJson(r.data);
+        return;
+      }
+
+      if (sub === "analytics") {
+        const r = await api("GET", "/api/s3/analytics/dashboard");
+        if (!r.ok) { writeError(r.error); return; }
+        writeJson(r.data);
+        return;
+      }
+
+      if (sub === "iam") {
+        const iamSub = rest[0];
+        if (!iamSub || iamSub === "ls") {
+          const r = await api("GET", "/api/s3/iam/users");
+          if (!r.ok) { writeError(r.error); return; }
+          const users = r.data.users || r.data || [];
+          if (!users.length) { writeln(c.dim("  No users")); return; }
+          writeTable(Array.isArray(users) ? users : [users], ["username", "status"]);
+          return;
+        }
+        if (iamSub === "add") {
+          const [username, password] = rest.slice(1);
+          if (!username || !password) { writeError("usage: s3 iam add <username> <password>"); return; }
+          const r = await api("POST", "/api/s3/iam/users", { username, password });
+          if (!r.ok) { writeError(r.error); return; }
+          writeOk(`User "${username}" created`);
+          return;
+        }
+        writeError(`unknown iam subcommand: ${iamSub}`);
+        return;
+      }
+
+      if (sub === "stream") {
+        const streamSub = rest[0] || "ls";
+        if (streamSub === "ls") {
+          const r = await api("GET", "/api/s3/stream/sessions");
+          if (!r.ok) { writeError(r.error); return; }
+          writeJson(r.data);
+          return;
+        }
+        writeError(`unknown stream subcommand: ${streamSub}`);
+        return;
+      }
+
+      if (sub === "status" || sub === "") {
+        switchAdapter("s3");
+        return;
+      }
+
+      writeError(`unknown s3 subcommand: ${sub}. Try: s3 help`);
+      return;
+    }
+
+    if (cmd === "sqlite") {
+      const sub = args[0] || "";
+      if (!sub || sub === "status") { switchAdapter("sqlite"); return; }
+
+      if (sub === "help" || sub === "--help") {
+        writeln(c.bold("sqlite — SQLite (FTS5) adapter"));
+        writeln("");
+        writeln("  " + c.accent("sqlite") + "                 Switch to SQLite adapter");
+        writeln("  " + c.accent("sqlite stats") + "           DB file count, size");
+        writeln("  " + c.accent("sqlite search <q>") + "      FTS5 full-text search");
+        writeln("  " + c.accent("sqlite ingest <p> <c>") + "  Ingest file into SQLite");
+        writeln("");
+        return;
+      }
+
+      if (sub === "stats") {
+        const r = await api("GET", "/api/admin/stats");
+        if (!r.ok) { writeError(r.error); return; }
+        writeJson(r.data);
+        return;
+      }
+
+      if (sub === "search") {
+        const query = args.slice(1).join(" ");
+        if (!query) { writeError("usage: sqlite search <query>"); return; }
+        writeln(c.dim(`FTS5 searching for "${query}"...`));
+        const r = await api("POST", "/api/fs/search", { query });
+        if (!r.ok) { writeError(r.error); return; }
+        const results = r.data.results || [];
+        for (const result of results) writeln(`  ${c.accent(result.path)}`);
+        writeln(c.dim(`  ${results.length} file(s) matched`));
+        return;
+      }
+
+      if (sub === "ingest") {
+        const path    = args[1];
+        const content = args.slice(2).join(" ");
+        if (!path || !content) { writeError("usage: sqlite ingest <path> <content>"); return; }
+        const r = await api("POST", "/api/admin/ingest", { files: { [path]: content } });
+        if (!r.ok) { writeError(r.error); return; }
+        writeOk(`Ingested into SQLite: ${path}`);
+        return;
+      }
+
+      writeError(`unknown sqlite subcommand: ${sub}. Try: sqlite help`);
+      return;
+    }
+
+    if (cmd === "chroma") {
+      const sub = args[0] || "";
+      if (!sub || sub === "status") { switchAdapter("chroma"); return; }
+
+      if (sub === "help" || sub === "--help") {
+        writeln(c.bold("chroma — Chroma vector DB adapter"));
+        writeln("");
+        writeln("  " + c.orange("chroma") + "                Switch to Chroma adapter");
+        writeln("  " + c.orange("chroma search <q>") + "    Semantic $contains search");
+        writeln("  " + c.orange("chroma ls [path]") + "     List files (via Chroma)");
+        writeln("  " + c.orange("chroma cat <file>") + "    Read file (via Chroma)");
+        writeln("");
+        return;
+      }
+
+      if (sub === "search") {
+        const query = args.slice(1).join(" ");
+        if (!query) { writeError("usage: chroma search <query>"); return; }
+        writeln(c.dim(`Chroma $contains searching for "${query}"...`));
+        const r = await api("POST", "/api/fs/search", { query });
+        if (!r.ok) { writeError(r.error); return; }
+        const results = r.data.results || [];
+        for (const result of results) writeln(`  ${c.orange(result.path)}`);
+        writeln(c.dim(`  ${results.length} file(s) matched`));
+        return;
+      }
+
+      if (sub === "ls" || sub === "cat") {
+        const path = args[1] || "/docs";
+        const r = await api("POST", "/api/fs/exec", { command: `${sub} ${path}`, adapter: "chroma" });
+        if (!r.ok) { writeError(r.error); return; }
+        if (r.data.stdout) writeln(r.data.stdout.replace(/\r?\n/g, "\r\n"));
+        if (r.data.stderr) writeln(c.red(r.data.stderr));
+        return;
+      }
+
+      writeError(`unknown chroma subcommand: ${sub}. Try: chroma help`);
+      return;
+    }
+
+    if (cmd === "help") {
+      writeln(c.bold("OpenFS CLI — complete command reference"));
+      writeln(c.dim("An AI-agent filesystem over SQLite, Chroma, and S3/MinIO"));
+      writeln("");
+      writeln(c.dim("── Filesystem bash commands ──────────────────────────────────────────"));
+      writeln(`  ${c.accent("ls [path]")}                  List directory contents`);
+      writeln(`  ${c.accent("cat <file>")}                 Print file content`);
+      writeln(`  ${c.accent("head [-n N] <file>")}         First N lines`);
+      writeln(`  ${c.accent("grep <pattern> [path]")}      Search files`);
+      writeln(`  ${c.accent("stat <file>")}                File metadata`);
+      writeln(`  ${c.accent("find [path]")}                Find files by path`);
+      writeln(`  ${c.accent("wc <file>")}                  Word / line count`);
+      writeln("");
+      writeln(c.dim("── Search ────────────────────────────────────────────────────────────"));
+      writeln(`  ${c.accent("search <query>")}             Full-text search (FTS5 / $contains)`);
+      writeln(`  ${c.accent("readdir <path>")}             Directory listing`);
+      writeln("");
+      writeln(c.dim("── Adapters ──────────────────────────────────────────────────────────"));
+      writeln(`  ${c.accent("sqlite")} / ${c.orange("chroma")} / ${c.cyan("s3")}       Switch active adapter`);
+      writeln(`  ${c.accent("sqlite help")}  ${c.orange("chroma help")}  ${c.cyan("s3 help")}  Adapter docs`);
+      writeln("");
+      writeln(c.dim("── Admin ─────────────────────────────────────────────────────────────"));
+      writeln(`  ${c.accent("stats")}                      Adapter index stats`);
+      writeln(`  ${c.accent("ingest <path> <content>")}    Add file to SQLite`);
+      writeln("");
+      writeln(c.dim("── Terminal ──────────────────────────────────────────────────────────"));
+      writeln(`  ${c.accent("clear")} / Ctrl+L             Clear screen`);
+      writeln(`  ${c.accent("↑ ↓")}                        Command history`);
+      writeln("");
+      return;
+    }
+
+    if (cmd === "clear") {
+      term.clear();
+      return;
+    }
+
+    if (cmd === "sqlite" || cmd === "chroma" || cmd === "s3") {
+      switchAdapter(cmd);
+      return;
+    }
+
+    writeln(c.red(`command not found: ${cmd}`));
+    writeln(c.dim("  Try: help"));
+  }
+
+  // ─── Adapter switch ───────────────────────────────────────────────────────
+  function switchAdapter(name) {
+    if (name === currentAdapter) {
+      writeln(c.dim(`Already using ${ADAPTER_INFO[currentAdapter].label}`));
+      return;
+    }
+    currentAdapter = name;
+    document.querySelectorAll(".adapter-btn").forEach(b => {
+      b.classList.toggle("active", b.getAttribute("data-adapter") === name);
+    });
+    const info = ADAPTER_INFO[currentAdapter];
+    termTitle.textContent = `openfs — just-bash + ${info.label}`;
+    writeln(`\x1b[38;5;${info.color}m⚡ Switched to ${info.label}\x1b[0m`);
+  }
+
+  // ─── Connection check ─────────────────────────────────────────────────────
+  async function checkConnection() {
+    try {
+      const res = await fetch("/health");
+      if (res.ok) {
+        dot.classList.add("live"); dot.classList.remove("error");
+        statusText.textContent = "connected";
+        return true;
+      }
+    } catch {}
+    dot.classList.add("error"); dot.classList.remove("live");
+    statusText.textContent = "server offline";
+    return false;
+  }
+
+  // ─── Welcome ──────────────────────────────────────────────────────────────
+  function showWelcome() {
+    term.writeln("\x1b[38;5;141m" +
+      "  ___                   _____ ____  \r\n" +
+      " / _ \\ _ __   ___ _ __ |  ___/ ___| \r\n" +
+      "| | | | '_ \\ / _ \\ '_ \\| |_  \\___ \\ \r\n" +
+      "| |_| | |_) |  __/ | | |  _|  ___) |\r\n" +
+      " \\___/| .__/ \\___|_| |_|_|   |____/ \r\n" +
+      "      |_|                            " +
+      "\x1b[0m\r\n");
+    writeln(c.dim("Virtual filesystem backed by SQLite + just-bash"));
+    writeln(c.dim("Type commands like: ls, cat, grep, search, s3 buckets, help") + "\r\n");
+  }
+
+  function showPrompt() { write(getPrompt()); }
+
+  // ─── Input handler ────────────────────────────────────────────────────────
+  term.onKey(async ({ key, domEvent }) => {
+    if (running) return;
+    const code = domEvent.keyCode;
+
+    if (code === 13) {
+      write("\r\n");
+      const cmd = commandBuffer.trim();
+      commandBuffer = "";
+      historyIndex = -1;
+      if (!cmd) { showPrompt(); return; }
+      history.push(cmd);
+      running = true;
+      await runCommand(cmd);
+      showPrompt();
+      running = false;
+    } else if (code === 8) {
+      if (commandBuffer.length > 0) {
+        commandBuffer = commandBuffer.slice(0, -1);
+        write("\b \b");
+      }
+    } else if (code === 38) {
+      if (history.length > 0) {
+        if (historyIndex === -1) historyIndex = history.length;
+        if (historyIndex > 0) {
+          historyIndex--;
+          write("\r" + getPrompt() + " ".repeat(commandBuffer.length) + "\r" + getPrompt());
+          commandBuffer = history[historyIndex];
+          write(commandBuffer);
+        }
+      }
+    } else if (code === 40) {
+      if (historyIndex >= 0 && historyIndex < history.length - 1) {
+        historyIndex++;
+        write("\r" + getPrompt() + " ".repeat(commandBuffer.length) + "\r" + getPrompt());
+        commandBuffer = history[historyIndex];
+        write(commandBuffer);
+      } else if (historyIndex === history.length - 1) {
+        historyIndex = -1;
+        write("\r" + getPrompt() + " ".repeat(commandBuffer.length) + "\r" + getPrompt());
+        commandBuffer = "";
+      }
+    } else if (domEvent.ctrlKey && domEvent.key === "c") {
+      write("^C\r\n");
+      commandBuffer = "";
+      showPrompt();
+    } else if (domEvent.ctrlKey && domEvent.key === "l") {
+      term.clear();
+      showPrompt();
+    } else if (!domEvent.ctrlKey && !domEvent.altKey && !domEvent.metaKey && key.length === 1) {
+      commandBuffer += key;
+      write(key);
+    }
+  });
+
+  // ─── Chip clicks ──────────────────────────────────────────────────────────
+  document.querySelectorAll(".chip[data-cmd]").forEach((chip) => {
+    chip.addEventListener("click", async () => {
+      const cmd = chip.getAttribute("data-cmd");
+      commandBuffer = "";
+      write(cmd + "\r\n");
+      running = true;
+      await runCommand(cmd);
+      showPrompt();
+      running = false;
+    });
+  });
+
+  // ─── Adapter button clicks ────────────────────────────────────────────────
+  document.querySelectorAll(".adapter-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      switchAdapter(btn.getAttribute("data-adapter"));
+      showPrompt();
+    });
+  });
+
+  // ─── Mode button clicks ───────────────────────────────────────────────────
+  document.querySelectorAll(".mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      switchMode(btn.getAttribute("data-mode"));
+      showPrompt();
+    });
+  });
+
+  // ─── Boot ─────────────────────────────────────────────────────────────────
+  showWelcome();
+  const connected = await checkConnection();
+  if (!connected) {
+    writeln(c.red("Server offline. Start with: bun run --hot packages/server/src/index.ts") + "\r\n");
+  }
+  showPrompt();
+</script>

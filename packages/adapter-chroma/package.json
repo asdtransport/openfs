@@ -1,0 +1,18 @@
+{
+  "name": "@openfs/adapter-chroma",
+  "version": "0.1.0",
+  "description": "Chroma vector DB adapter for OpenFS — the ChromaFs pattern",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "chromadb": "^3.4.0"
+  },
+  "peerDependencies": {
+    "@openfs/core": "workspace:*"
+  },
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,1484 @@
+---
+import AppShell from '../components/AppShell.astro';
+---
+<AppShell title="S3 Browser" active="s3-browser">
+<div class="s3-root">
+
+  <!-- ── Left: bucket + folder tree ── -->
+  <div class="s3-left">
+
+    <div class="s3-toolbar">
+      <select id="bucket-select" class="form-input" style="flex:1;font-size:0.8rem">
+        <option value="">Loading buckets…</option>
+      </select>
+      <button class="btn btn-sm btn-ghost-dark" id="btn-refresh" title="Refresh">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+    </div>
+
+    <div class="s3-breadcrumb" id="breadcrumb">
+      <span class="crumb active" data-prefix="">root</span>
+    </div>
+
+    <div class="s3-tree" id="file-tree">
+      <div class="tree-empty">Select a bucket to browse</div>
+    </div>
+
+    <!-- Ingest panel -->
+    <div class="ingest-panel" id="ingest-panel" style="display:none">
+      <div class="ingest-label">Ingest into knowledge base</div>
+      <div class="ingest-scope" id="ingest-scope-label"></div>
+      <label class="ingest-row">
+        <span>Topic tag</span>
+        <input id="ingest-topic" class="form-input" style="font-size:0.78rem" placeholder="e.g. SharePoint Docs" />
+      </label>
+      <label class="ingest-row">
+        <span>Chunk size</span>
+        <input id="ingest-chunk" class="form-input" style="font-size:0.78rem" value="1200" type="number" />
+      </label>
+      <button class="btn btn-gold" id="btn-ingest" style="width:100%;margin-top:0.5rem">
+        Ingest → Chroma + Wiki
+      </button>
+      <div class="ingest-result" id="ingest-result" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Right: file detail + parse preview ── -->
+  <div class="s3-right" id="s3-right">
+    <div class="s3-empty-state" id="s3-empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      <p>Select a file to preview how the knowledge parser will extract it</p>
+    </div>
+
+    <div class="file-detail" id="file-detail" style="display:none">
+
+      <!-- File header -->
+      <div class="file-header">
+        <div class="file-icon" id="file-icon">📄</div>
+        <div class="file-meta">
+          <div class="file-name" id="file-name"></div>
+          <div class="file-info" id="file-info"></div>
+        </div>
+        <div class="file-actions">
+          <button class="btn btn-sm btn-navy" id="btn-preview">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Parse Preview
+          </button>
+          <button class="btn btn-sm btn-gold" id="btn-ingest-file">
+            Ingest File
+          </button>
+        </div>
+      </div>
+
+      <!-- Normalize bar -->
+      <div class="normalize-bar">
+        <select id="norm-model" class="form-input" style="font-size:0.75rem;width:auto">
+          <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+          <option value="claude-sonnet-4-6">Sonnet (better)</option>
+          <option value="claude-opus-4-6">Opus (best)</option>
+        </select>
+        <input id="norm-rules" class="form-input" style="font-size:0.75rem;flex:1" placeholder="Extra rules for this call only…" />
+        <button class="btn btn-sm btn-navy" id="btn-normalize" style="white-space:nowrap">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Normalize
+        </button>
+      </div>
+      <!-- Rules toggle row — always visible -->
+      <div class="rules-toggle-row">
+        <button class="rules-toggle-btn" id="btn-rules-toggle">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M20.19 8.2A10 10 0 0 0 8.2 20.19"/><path d="M12 2v2m0 18v2M2 12h2m18 0h2"/></svg>
+          <span>Edit saved rules / system prompts</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto;opacity:0.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+      </div>
+
+
+      <!-- Preview tabs -->
+      <div class="preview-tabs">
+        <button class="tab active" data-tab="text">Extracted Text</button>
+        <button class="tab" data-tab="chunks">Chunks</button>
+        <button class="tab" data-tab="normalized">Normalized</button>
+        <button class="tab" data-tab="doc">Document</button>
+        <button class="tab" data-tab="meta">Metadata</button>
+      </div>
+
+      <div class="preview-loading" id="preview-loading" style="display:none">
+        <div class="spinner"></div>
+        <span>Running parser…</span>
+      </div>
+
+      <div class="tab-pane active" id="tab-text">
+        <div class="preview-hint" id="preview-hint">Click "Parse Preview" to extract text from this file</div>
+        <pre class="preview-content" id="preview-text" style="display:none"></pre>
+        <div class="preview-stats" id="preview-stats" style="display:none"></div>
+      </div>
+
+      <div class="tab-pane" id="tab-chunks">
+        <div class="chunks-list" id="chunks-list">
+          <div class="preview-hint">Run Parse Preview first to see chunks</div>
+        </div>
+      </div>
+
+      <!-- Normalized tab -->
+      <div class="tab-pane" id="tab-normalized">
+        <div class="preview-hint" id="norm-hint">Click "Normalize" to run an LLM pass on this file</div>
+        <div class="norm-loading" id="norm-loading" style="display:none">
+          <div class="spinner"></div>
+          <span id="norm-loading-msg">Running LLM normalization…</span>
+        </div>
+        <div class="norm-result" id="norm-result" style="display:none">
+          <div class="norm-meta" id="norm-meta">
+            <span id="norm-meta-text"></span>
+            <button class="btn btn-sm btn-gold" id="btn-ingest-normalized" style="float:right;font-size:0.72rem">
+              Ingest Normalized → Chroma + Wiki
+            </button>
+          </div>
+          <div class="norm-sheets" id="norm-sheets"></div>
+          <pre class="preview-content" id="norm-text" style="display:none"></pre>
+          <div class="norm-ingest-result" id="norm-ingest-result" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Document viewer tab -->
+      <div class="tab-pane" id="tab-doc">
+        <div class="doc-hint" id="doc-hint">Click a file in the tree to load a preview</div>
+        <!-- PDF -->
+        <iframe id="doc-pdf" class="doc-frame" style="display:none" title="PDF preview"></iframe>
+        <!-- XLSX rendered as HTML table -->
+        <div id="doc-xlsx" style="display:none" class="doc-xlsx-wrap">
+          <div class="sheet-tabs" id="sheet-tabs"></div>
+          <div class="xlsx-table-wrap" id="xlsx-table-wrap"></div>
+        </div>
+        <!-- DOCX rendered as HTML via mammoth -->
+        <div id="doc-docx" class="doc-docx-wrap" style="display:none"></div>
+        <!-- Unsupported -->
+        <div id="doc-unsupported" style="display:none" class="doc-hint">
+          No native viewer for this file type — use Extracted Text tab.
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-meta">
+        <table class="meta-table" id="meta-table"></table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<style>
+/* ── Layout ── */
+.s3-root {
+  display: flex;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+  background: var(--bg, #f0ece5);
+}
+.s3-left {
+  width: 280px;
+  min-width: 220px;
+  border-right: 1px solid #ddd;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.s3-right {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Left toolbar ── */
+.s3-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+/* ── Breadcrumb ── */
+.s3-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  color: #666;
+  border-bottom: 1px solid #eee;
+  min-height: 30px;
+}
+.crumb {
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.crumb:hover { background: #f0f0f0; color: var(--navy, #1e3a5f); }
+.crumb.active { color: var(--navy, #1e3a5f); font-weight: 600; }
+.crumb-sep { color: #ccc; }
+
+/* ── Tree ── */
+.s3-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.tree-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #999;
+}
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 1px 4px;
+  color: #333;
+  user-select: none;
+}
+.tree-row:hover { background: #f4f4f4; }
+.tree-row.selected { background: #e8f0fe; color: var(--navy, #1e3a5f); }
+.tree-row.folder { font-weight: 500; color: #444; }
+.tree-row svg { flex-shrink: 0; opacity: 0.6; }
+.tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-size { font-size: 0.7rem; color: #999; flex-shrink: 0; }
+
+/* ── Ingest panel ── */
+.ingest-panel {
+  border-top: 1px solid #eee;
+  padding: 12px;
+  background: #fafafa;
+}
+.ingest-label { font-size: 0.75rem; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ingest-scope { font-size: 0.75rem; color: #888; margin-bottom: 8px; font-family: monospace; }
+.ingest-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.78rem; color: #555; }
+.ingest-row span { width: 72px; flex-shrink: 0; }
+.ingest-result { margin-top: 8px; font-size: 0.78rem; padding: 8px; border-radius: 6px; }
+.ingest-result.ok { background: #d4edda; color: #155724; }
+.ingest-result.err { background: #f8d7da; color: #721c24; }
+
+/* ── Right empty state ── */
+.s3-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #aaa;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ── File detail ── */
+.file-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.file-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+}
+.file-icon { font-size: 1.8rem; flex-shrink: 0; }
+.file-meta { flex: 1; overflow: hidden; }
+.file-name { font-size: 0.9rem; font-weight: 600; color: #1e3a5f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-info { font-size: 0.75rem; color: #888; margin-top: 2px; }
+.file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* ── Tabs ── */
+.preview-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  padding: 0 18px;
+}
+.tab {
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font-size: 0.8rem;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover { color: #444; }
+.tab.active { color: var(--navy, #1e3a5f); font-weight: 600; border-bottom-color: var(--gold, #b8862e); }
+
+.tab-pane { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.tab-pane.active { display: flex; }
+
+/* ── Preview ── */
+.preview-hint {
+  padding: 24px;
+  text-align: center;
+  color: #aaa;
+  font-size: 0.82rem;
+}
+.preview-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  font-size: 0.82rem;
+  color: #666;
+}
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid #ddd;
+  border-top-color: var(--navy, #1e3a5f);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.preview-content {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 16px 18px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fafafa;
+  color: #333;
+}
+.preview-stats {
+  padding: 8px 18px;
+  font-size: 0.72rem;
+  color: #888;
+  border-top: 1px solid #eee;
+  background: #fff;
+}
+
+/* ── Chunks tab ── */
+.chunks-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chunk-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.chunk-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.chunk-num { font-size: 0.7rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.05em; }
+.chunk-len { font-size: 0.68rem; color: #bbb; }
+.chunk-text {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #444;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+/* ── Meta table ── */
+.meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin: 12px 18px;
+}
+.meta-table td { padding: 6px 8px; }
+.meta-table td:first-child { color: #888; width: 120px; }
+.meta-table td:last-child { font-family: monospace; word-break: break-all; }
+.meta-table tr:nth-child(even) td { background: #f9f9f9; }
+
+/* ── Document viewer ── */
+.doc-hint {
+  padding: 32px;
+  text-align: center;
+  color: #aaa;
+  font-size: 0.82rem;
+}
+.doc-frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+.doc-xlsx-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sheet-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid #eee;
+  background: #fafafa;
+}
+.sheet-tab {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: #f4f4f4;
+  cursor: pointer;
+  color: #555;
+}
+.sheet-tab.active { background: #fff; color: var(--navy, #1e3a5f); font-weight: 600; }
+.xlsx-table-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+.xlsx-table-wrap table {
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  min-width: 100%;
+}
+.xlsx-table-wrap th {
+  background: var(--navy, #1e3a5f);
+  color: #fff;
+  padding: 5px 8px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-weight: 500;
+}
+.xlsx-table-wrap td {
+  padding: 4px 8px;
+  border: 1px solid #eee;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #333;
+}
+.xlsx-table-wrap tr:nth-child(even) td { background: #f9f9f9; }
+.xlsx-table-wrap tr:hover td { background: #eef4ff; }
+
+.doc-docx-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: #222;
+  background: #fff;
+}
+.doc-docx-wrap h1 { font-size: 1.3rem; color: var(--navy, #1e3a5f); margin: 1rem 0 0.5rem; }
+.doc-docx-wrap h2 { font-size: 1.1rem; color: var(--navy, #1e3a5f); margin: 0.8rem 0 0.4rem; }
+.doc-docx-wrap h3 { font-size: 0.95rem; font-weight: 600; margin: 0.6rem 0 0.3rem; }
+.doc-docx-wrap table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 0.78rem; }
+.doc-docx-wrap td, .doc-docx-wrap th { border: 1px solid #ccc; padding: 4px 8px; }
+.doc-docx-wrap th { background: #f0f0f0; font-weight: 600; }
+
+/* ── Normalize bar ── */
+.normalize-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-bottom: 1px solid #eee;
+  background: #fafafa;
+}
+
+/* ── Rules toggle row ── */
+.rules-toggle-row {
+  border-bottom: 1px solid #e0dbd2;
+  background: #f2ede6;
+}
+.rules-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  color: #666;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.rules-toggle-btn:hover { background: #ece6dd; color: #333; }
+.rules-toggle-btn.open  { color: var(--navy, #1e3a5f); font-weight: 500; }
+
+/* ── Rules modal ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  width: min(680px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eee;
+  background: var(--navy, #1e3a5f);
+  color: #fff;
+}
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.modal-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.modal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+.rules-type-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #eee;
+  background: #f7f5f0;
+}
+.rules-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--gold, #b8862e);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.rules-textarea {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  flex: 1;
+  resize: none;
+  padding: 14px 16px;
+  border: none;
+  outline: none;
+  color: #222;
+  background: #fff;
+  min-height: 280px;
+}
+.rules-status {
+  padding: 5px 16px;
+  font-size: 0.7rem;
+  color: #888;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+  min-height: 24px;
+}
+
+/* ── Normalized tab ── */
+.norm-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  font-size: 0.82rem;
+  color: #666;
+}
+.norm-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.norm-meta {
+  display: flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 0.72rem;
+  color: #888;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  gap: 8px;
+}
+.norm-ingest-result {
+  margin: 6px 14px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 0.76rem;
+}
+.norm-ingest-result.ok  { background: #d4edda; color: #155724; }
+.norm-ingest-result.err { background: #f8d7da; color: #721c24; }
+.norm-sheets {
+  display: flex;
+  gap: 4px;
+  padding: 6px 18px 0;
+  background: #fafafa;
+  flex-wrap: wrap;
+}
+.norm-sheet-tab {
+  padding: 3px 10px;
+  font-size: 0.73rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f0f0f0;
+  cursor: pointer;
+  color: #555;
+}
+.norm-sheet-tab.active { background: var(--navy, #1e3a5f); color: #fff; border-color: var(--navy, #1e3a5f); }
+</style>
+
+<!-- Rules modal -->
+<div class="modal-backdrop" id="rules-modal-backdrop" style="display:none">
+  <div class="modal" id="rules-modal">
+    <div class="modal-header">
+      <span class="modal-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 18v2M2 12h2m18 0h2m-3.07-6.93-1.41 1.41M5.48 18.52l-1.41 1.41M18.52 18.52l-1.41-1.41M5.48 5.48 4.07 4.07"/></svg>
+        Normalize Rules / System Prompts
+      </span>
+      <button class="modal-close" id="btn-rules-close" title="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="rules-type-bar">
+        <span style="font-size:0.75rem;color:#888">Editing prompt for</span>
+        <select id="rules-type-select" class="form-input" style="font-size:0.78rem;width:auto">
+          <option value="txt">Loading…</option>
+        </select>
+        <span id="rules-custom-badge" class="rules-badge" style="display:none">custom</span>
+      </div>
+      <textarea id="rules-prompt" class="rules-textarea" spellcheck="false" placeholder="System prompt sent to the LLM before normalizing documents of this type…"></textarea>
+      <div class="rules-status" id="rules-status"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-sm btn-ghost-dark" id="btn-rules-reset">Reset to default</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-sm btn-ghost-dark" id="btn-rules-close2">Cancel</button>
+      <button class="btn btn-sm btn-gold" id="btn-rules-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:4322';  // all calls go through the Bun server (CORS + auth handled there)
+
+let currentBucket = '';
+let currentPrefix  = '';
+let selectedFile: { key: string; size: number; modified: string; contentType?: string } | null = null;
+let previewData: { text: string; charCount: number; truncated: boolean } | null = null;
+
+// ── Utility ────────────────────────────────────────────────────────────────
+
+function fmtBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1048576) return `${(b/1024).toFixed(1)} KB`;
+  return `${(b/1048576).toFixed(1)} MB`;
+}
+
+function fileIcon(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'pdf') return '📕';
+  if (['xlsx','xls'].includes(ext)) return '📊';
+  if (['docx','doc'].includes(ext)) return '📝';
+  if (['pptx','ppt'].includes(ext)) return '📋';
+  if (['md','txt'].includes(ext)) return '📄';
+  if (ext === 'json') return '📦';
+  return '📄';
+}
+
+function chunkText(text: string, size = 1200, overlap = 200): string[] {
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    chunks.push(text.slice(i, i + size));
+    i += size - overlap;
+    if (i + overlap >= text.length) break;
+  }
+  if (i < text.length) chunks.push(text.slice(i));
+  return chunks;
+}
+
+// ── Bucket list ─────────────────────────────────────────────────────────────
+
+async function loadBuckets() {
+  try {
+    const r = await fetch(`${API}/s3/buckets`);
+    const data = await r.json() as any[];
+    const sel = document.getElementById('bucket-select') as HTMLSelectElement;
+    sel.innerHTML = '<option value="">— select bucket —</option>';
+    for (const b of data) {
+      const o = document.createElement('option');
+      o.value = b.name;
+      o.textContent = b.name;
+      sel.appendChild(o);
+    }
+  } catch (e) {
+    console.error('bucket load failed', e);
+  }
+}
+
+// ── Browse ───────────────────────────────────────────────────────────────────
+
+async function browse(bucket: string, prefix: string) {
+  if (!bucket) return;
+  currentBucket = bucket;
+  currentPrefix  = prefix;
+
+  updateBreadcrumb(prefix);
+
+  const tree = document.getElementById('file-tree')!;
+  tree.innerHTML = '<div class="tree-empty">Loading…</div>';
+
+  try {
+    // List with no recursion to get one level
+    const r = await fetch(
+      `${API}/s3/browse?bucket=${encodeURIComponent(bucket)}&prefix=${encodeURIComponent(prefix)}`
+    );
+    const items = await r.json() as any[];
+
+    // Separate folders (key ends with /) vs files
+    const folders = new Set<string>();
+    const files: any[] = [];
+
+    for (const item of items) {
+      const rel = item.name.slice(prefix.length);
+      if (!rel) continue;
+      const slashIdx = rel.indexOf('/');
+      if (slashIdx >= 0) {
+        // It's inside a subfolder
+        folders.add(prefix + rel.slice(0, slashIdx + 1));
+      } else {
+        files.push(item);
+      }
+    }
+
+    tree.innerHTML = '';
+
+    // Skip .meta.json sidecars
+    const visibleFiles = files.filter((f: any) => !f.name.endsWith('.meta.json'));
+
+    if (folders.size === 0 && visibleFiles.length === 0) {
+      tree.innerHTML = '<div class="tree-empty">No files here</div>';
+      return;
+    }
+
+    // Folders first
+    for (const folder of [...folders].sort()) {
+      const label = folder.slice(prefix.length).replace(/\/$/, '');
+      const row = document.createElement('div');
+      row.className = 'tree-row folder';
+      row.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span class="tree-name">${label}/</span>
+      `;
+      row.addEventListener('click', () => browse(bucket, folder));
+      tree.appendChild(row);
+    }
+
+    // Files
+    for (const item of visibleFiles) {
+      const name = item.name.split('/').pop() ?? item.name;
+      const row = document.createElement('div');
+      row.className = 'tree-row';
+      row.dataset.key = item.name;
+      row.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="tree-name">${name}</span>
+        <span class="tree-size">${fmtBytes(item.size)}</span>
+      `;
+      row.addEventListener('click', () => selectFile(item, name));
+      tree.appendChild(row);
+    }
+
+    // Show ingest panel once we have a bucket
+    const panel = document.getElementById('ingest-panel')!;
+    panel.style.display = 'block';
+    const scopeLabel = document.getElementById('ingest-scope-label')!;
+    scopeLabel.textContent = `${bucket}/${prefix || ''}`;
+
+  } catch (e) {
+    tree.innerHTML = `<div class="tree-empty" style="color:#c00">Error: ${(e as Error).message}</div>`;
+  }
+}
+
+// ── Breadcrumb ───────────────────────────────────────────────────────────────
+
+function updateBreadcrumb(prefix: string) {
+  const bc = document.getElementById('breadcrumb')!;
+  bc.innerHTML = '';
+
+  const addCrumb = (label: string, pfx: string, isLast: boolean) => {
+    const s = document.createElement('span');
+    s.className = 'crumb' + (isLast ? ' active' : '');
+    s.textContent = label;
+    s.dataset.prefix = pfx;
+    s.addEventListener('click', () => !isLast && browse(currentBucket, pfx));
+    bc.appendChild(s);
+    if (!isLast) {
+      const sep = document.createElement('span');
+      sep.className = 'crumb-sep';
+      sep.textContent = ' / ';
+      bc.appendChild(sep);
+    }
+  };
+
+  const parts = prefix.split('/').filter(Boolean);
+  addCrumb('root', '', parts.length === 0);
+  let built = '';
+  for (let i = 0; i < parts.length; i++) {
+    built += parts[i] + '/';
+    addCrumb(parts[i], built, i === parts.length - 1);
+  }
+}
+
+// ── File selection ────────────────────────────────────────────────────────────
+
+function selectFile(item: any, name: string) {
+  selectedFile = { key: item.name, size: item.size, modified: item.last_modified ?? '' };
+  previewData = null;
+
+  // Deselect all rows, highlight this one
+  document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('selected'));
+  document.querySelector(`.tree-row[data-key="${CSS.escape(item.name)}"]`)?.classList.add('selected');
+
+  // Show file detail panel
+  document.getElementById('s3-empty')!.style.display = 'none';
+  const detail = document.getElementById('file-detail')!;
+  detail.style.display = 'flex';
+
+  document.getElementById('file-icon')!.textContent = fileIcon(name);
+  document.getElementById('file-name')!.textContent = name;
+  document.getElementById('file-info')!.textContent =
+    `${fmtBytes(item.size)} · ${item.last_modified?.slice(0, 10) ?? '—'} · ${currentBucket}`;
+
+  // Meta tab
+  const mt = document.getElementById('meta-table')!;
+  mt.innerHTML = [
+    ['Bucket', currentBucket],
+    ['Key', item.name],
+    ['Size', fmtBytes(item.size)],
+    ['Modified', item.last_modified ?? '—'],
+    ['Content-Type', item.content_type ?? 'unknown'],
+  ].map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+
+  // Reset preview tab
+  document.getElementById('preview-hint')!.style.display = 'block';
+  document.getElementById('preview-text')!.style.display = 'none';
+  document.getElementById('preview-stats')!.style.display = 'none';
+  const chunksList = document.getElementById('chunks-list')!;
+  chunksList.innerHTML = '<div class="preview-hint">Run Parse Preview first to see chunks</div>';
+
+  // Reset normalize tab
+  normData = null;
+  document.getElementById('norm-hint')!.textContent = 'Click "Normalize" to run an LLM pass on this file';
+  document.getElementById('norm-hint')!.style.display = 'block';
+  document.getElementById('norm-result')!.style.display = 'none';
+  document.getElementById('norm-loading')!.style.display = 'none';
+
+  // Sync rules editor to the new file's doc type (if editor is open)
+  const newDocType = extToDocType(item.name);
+  if (newDocType !== currentDocType) {
+    updateRulesEditor(newDocType);
+  }
+
+  // Switch to text tab
+  switchTab('text');
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+function switchTab(name: string) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', (t as HTMLElement).dataset.tab === name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => switchTab((t as HTMLElement).dataset.tab!));
+});
+
+// ── Parse Preview ─────────────────────────────────────────────────────────────
+
+async function runPreview() {
+  if (!selectedFile) return;
+  const loading = document.getElementById('preview-loading')!;
+  loading.style.display = 'flex';
+  document.getElementById('preview-hint')!.style.display = 'none';
+  document.getElementById('preview-text')!.style.display = 'none';
+  document.getElementById('preview-stats')!.style.display = 'none';
+
+  try {
+    const r = await fetch(
+      `${API}/s3/preview?bucket=${encodeURIComponent(currentBucket)}&key=${encodeURIComponent(selectedFile.key)}`
+    );
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error);
+
+    previewData = { text: data.text, charCount: data.charCount, truncated: data.truncated };
+
+    const preEl = document.getElementById('preview-text')!;
+    preEl.textContent = data.text || '(no text extracted — unsupported format or empty file)';
+    preEl.style.display = 'block';
+
+    const stats = document.getElementById('preview-stats')!;
+    stats.textContent = `${data.charCount.toLocaleString()} chars extracted · ${fmtBytes(data.sizeBytes)} raw · ${data.contentType}` +
+      (data.truncated ? ' · preview truncated to 8k' : '');
+    stats.style.display = 'block';
+
+    // Build chunk preview
+    const chunks = chunkText(data.text, 1200, 200);
+    const chunksList = document.getElementById('chunks-list')!;
+    chunksList.innerHTML = '';
+    for (let i = 0; i < Math.min(chunks.length, 20); i++) {
+      const card = document.createElement('div');
+      card.className = 'chunk-card';
+      card.innerHTML = `
+        <div class="chunk-head">
+          <span class="chunk-num">Chunk ${i + 1} / ${chunks.length}</span>
+          <span class="chunk-len">${chunks[i].length} chars</span>
+        </div>
+        <div class="chunk-text">${chunks[i].replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      `;
+      chunksList.appendChild(card);
+    }
+    if (chunks.length > 20) {
+      const note = document.createElement('div');
+      note.className = 'preview-hint';
+      note.textContent = `… ${chunks.length - 20} more chunks (ingest to embed all)`;
+      chunksList.appendChild(note);
+    }
+
+  } catch (e) {
+    document.getElementById('preview-hint')!.textContent = `Error: ${(e as Error).message}`;
+    document.getElementById('preview-hint')!.style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+// ── Ingest (single file via prefix) ──────────────────────────────────────────
+
+async function ingest(bucket: string, prefix: string, topic?: string, chunkSize = 1200) {
+  const resultEl = document.getElementById('ingest-result')!;
+  resultEl.style.display = 'none';
+
+  const btn = document.getElementById('btn-ingest') as HTMLButtonElement;
+  btn.disabled = true;
+  btn.textContent = 'Ingesting…';
+
+  try {
+    const r = await fetch(`${API}/s3-ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bucket, prefix, topic, chunkSize, synthesize: true }),
+    });
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error);
+
+    const wikiLinks = [
+      ...(data.wikiPagesCreated || []),
+      ...(data.wikiPagesUpdated || []),
+    ].map((p: string) =>
+      `<a href="https://mw.openfs.derekethandavis.com/wiki/${encodeURIComponent(p.split('/').pop()?.replace(/\.md$/,'').replace(/-/g,' ') ?? p)}" target="_blank">${p}</a>`
+    ).join(', ');
+
+    resultEl.className = 'ingest-result ok';
+    resultEl.innerHTML =
+      `✓ ${data.filesProcessed} files · ${data.chunksStored} chunks · ` +
+      `${data.entitiesExtracted} entities` +
+      (wikiLinks ? `<br>Wiki: ${wikiLinks}` : '') +
+      (data.errors?.length ? `<br>⚠ ${data.errors.length} errors` : '');
+  } catch (e) {
+    resultEl.className = 'ingest-result err';
+    resultEl.textContent = `Error: ${(e as Error).message}`;
+  } finally {
+    resultEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Ingest → Chroma + Wiki';
+  }
+}
+
+// ── Rules editor ─────────────────────────────────────────────────────────────
+
+let allRules: Record<string, { prompt: string; isCustom: boolean; updatedAt?: string }> = {};
+let currentDocType = 'txt';
+
+function extToDocType(key: string): string {
+  const ext = key.split('.').pop()?.toLowerCase() ?? 'txt';
+  const map: Record<string, string> = { xlsx: 'xlsx', xls: 'xlsx', pdf: 'pdf', docx: 'docx', doc: 'docx', csv: 'csv', log: 'log', md: 'md', mdx: 'md' };
+  return map[ext] ?? 'txt';
+}
+
+async function loadAllRules() {
+  try {
+    const r = await fetch(`${API}/s3/normalize/rules`);
+    allRules = await r.json() as any;
+    refreshRulesDropdown();
+  } catch (e) {
+    console.warn('Could not load normalize rules', e);
+  }
+}
+
+const RULES_LABELS: Record<string, string> = {
+  xlsx: '.xlsx / .xls', pdf: '.pdf', docx: '.docx / .doc',
+  csv: '.csv', log: '.log', md: '.md / .mdx', txt: '.txt',
+};
+
+function refreshRulesDropdown() {
+  const sel = document.getElementById('rules-type-select') as HTMLSelectElement;
+  const prev = sel.value || currentDocType;
+  sel.innerHTML = '';
+  for (const [type, label] of Object.entries(RULES_LABELS)) {
+    const opt = document.createElement('option');
+    opt.value = type;
+    opt.textContent = allRules[type]?.isCustom ? `★ ${label}` : label;
+    sel.appendChild(opt);
+  }
+  sel.value = prev in allRules ? prev : 'txt';
+}
+
+function updateRulesEditor(docType: string) {
+  currentDocType = docType;
+  const rule = allRules[docType];
+  if (!rule) return;
+
+  // Sync dropdown
+  const sel = document.getElementById('rules-type-select') as HTMLSelectElement;
+  if (sel.value !== docType) sel.value = docType;
+
+  (document.getElementById('rules-prompt') as HTMLTextAreaElement).value = rule.prompt;
+
+  const badge = document.getElementById('rules-custom-badge')!;
+  badge.style.display = rule.isCustom ? 'inline' : 'none';
+
+  const status = document.getElementById('rules-status')!;
+  status.textContent = rule.isCustom
+    ? `Custom · saved ${rule.updatedAt?.slice(0, 10) ?? '—'}`
+    : 'Using built-in default';
+}
+
+document.getElementById('rules-type-select')!.addEventListener('change', (e) => {
+  updateRulesEditor((e.target as HTMLSelectElement).value);
+});
+
+function openRulesModal() {
+  document.getElementById('rules-modal-backdrop')!.style.display = 'flex';
+  const docType = selectedFile ? extToDocType(selectedFile.key) : currentDocType;
+  updateRulesEditor(docType);
+}
+function closeRulesModal() {
+  document.getElementById('rules-modal-backdrop')!.style.display = 'none';
+}
+
+document.getElementById('btn-rules-toggle')!.addEventListener('click', openRulesModal);
+document.getElementById('btn-rules-close')!.addEventListener('click', closeRulesModal);
+document.getElementById('btn-rules-close2')!.addEventListener('click', closeRulesModal);
+// Close on backdrop click
+document.getElementById('rules-modal-backdrop')!.addEventListener('click', (e) => {
+  if (e.target === document.getElementById('rules-modal-backdrop')) closeRulesModal();
+});
+
+document.getElementById('btn-rules-save')!.addEventListener('click', async () => {
+  const prompt = (document.getElementById('rules-prompt') as HTMLTextAreaElement).value.trim();
+  if (!prompt) return;
+  const statusEl = document.getElementById('rules-status')!;
+  statusEl.textContent = 'Saving…';
+  try {
+    const r = await fetch(`${API}/s3/normalize/rules`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: currentDocType, prompt }),
+    });
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error);
+    // Update local cache
+    allRules[currentDocType] = { prompt, isCustom: true, updatedAt: data.updatedAt };
+    refreshRulesDropdown();
+    updateRulesEditor(currentDocType);
+    statusEl.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    statusEl.textContent = `Error: ${(e as Error).message}`;
+  }
+});
+
+document.getElementById('btn-rules-reset')!.addEventListener('click', async () => {
+  const statusEl = document.getElementById('rules-status')!;
+  statusEl.textContent = 'Resetting…';
+  try {
+    const r = await fetch(`${API}/s3/normalize/rules?type=${encodeURIComponent(currentDocType)}`, { method: 'DELETE' });
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error);
+    // Reload all rules to get the default back
+    await loadAllRules();  // also calls refreshRulesDropdown
+    updateRulesEditor(currentDocType);
+  } catch (e) {
+    statusEl.textContent = `Error: ${(e as Error).message}`;
+  }
+});
+
+// ── Normalize ────────────────────────────────────────────────────────────────
+
+let normData: any = null; // last normalize result
+
+async function runNormalize() {
+  if (!selectedFile) return;
+
+  const model = (document.getElementById('norm-model') as HTMLSelectElement).value;
+  const rules = (document.getElementById('norm-rules') as HTMLInputElement).value.trim();
+
+  const hintEl    = document.getElementById('norm-hint')!;
+  const loadEl    = document.getElementById('norm-loading')!;
+  const resultEl  = document.getElementById('norm-result')!;
+  const msgEl     = document.getElementById('norm-loading-msg')!;
+
+  hintEl.style.display   = 'none';
+  resultEl.style.display  = 'none';
+  loadEl.style.display    = 'flex';
+  msgEl.textContent = `Running ${model.includes('haiku') ? 'Haiku' : model.includes('sonnet') ? 'Sonnet' : 'Opus'} normalization…`;
+
+  // Switch to normalized tab immediately so user sees the spinner
+  switchTab('normalized');
+
+  try {
+    const body: any = {
+      bucket: currentBucket,
+      key: selectedFile.key,
+      model,
+    };
+    if (rules) body.rules = rules;
+
+    const r = await fetch(`${API}/s3/normalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error);
+
+    normData = data;
+
+    const metaEl   = document.getElementById('norm-meta-text')!;
+    const sheetsEl = document.getElementById('norm-sheets')!;
+    const textEl   = document.getElementById('norm-text')!;
+    document.getElementById('norm-ingest-result')!.style.display = 'none';
+
+    // Model + char info
+    const modelLabel = data.model ?? model;
+    metaEl.textContent = `Model: ${modelLabel}`;
+
+    // Multi-sheet (XLSX) vs single text result
+    if (data.sheets && Array.isArray(data.sheets) && data.sheets.length > 0) {
+      // Build sheet tabs
+      sheetsEl.innerHTML = '';
+      textEl.style.display = 'block';
+
+      const showSheet = (idx: number) => {
+        sheetsEl.querySelectorAll('.norm-sheet-tab').forEach((t, i) =>
+          t.classList.toggle('active', i === idx)
+        );
+        const s = data.sheets[idx];
+        const stats = `${s.charCount?.toLocaleString() ?? '—'} chars`;
+        metaEl.textContent = `Model: ${modelLabel} · Sheet: ${s.name} · ${stats}`;
+        textEl.textContent = s.markdown ?? s.text ?? '(empty)';
+      };
+
+      data.sheets.forEach((s: any, i: number) => {
+        const btn = document.createElement('button');
+        btn.className = 'norm-sheet-tab' + (i === 0 ? ' active' : '');
+        btn.textContent = s.name;
+        btn.addEventListener('click', () => showSheet(i));
+        sheetsEl.appendChild(btn);
+      });
+
+      showSheet(0);
+
+    } else {
+      // Single text result (PDF, DOCX, plain text)
+      sheetsEl.innerHTML = '';
+      const stats = `${data.charCount?.toLocaleString() ?? '—'} chars`;
+      metaEl.textContent = `Model: ${modelLabel} · ${stats}`;
+      textEl.textContent = data.text ?? data.markdown ?? '(no output)';
+      textEl.style.display = 'block';
+    }
+
+    resultEl.style.display = 'flex';
+
+  } catch (e) {
+    hintEl.textContent = `Normalize error: ${(e as Error).message}`;
+    hintEl.style.display = 'block';
+  } finally {
+    loadEl.style.display = 'none';
+  }
+}
+
+// ── Ingest Normalized ─────────────────────────────────────────────────────────
+
+async function ingestNormalized() {
+  if (!selectedFile || !normData) return;
+
+  const btn = document.getElementById('btn-ingest-normalized') as HTMLButtonElement;
+  const resultEl = document.getElementById('norm-ingest-result')!;
+  btn.disabled = true;
+  btn.textContent = 'Ingesting…';
+  resultEl.style.display = 'none';
+
+  // Collect the full text from normData — handles both xlsx (multi-sheet) and single-text types
+  let text = '';
+  if (normData.sheets?.length) {
+    text = normData.sheets.map((s: any) => s.normalized ?? s.markdown ?? '').join('\n\n');
+  } else {
+    text = normData.text ?? normData.markdown ?? '';
+  }
+
+  const topic = (document.getElementById('ingest-topic') as HTMLInputElement)?.value?.trim() || 'normalized';
+
+  try {
+    const r = await fetch(`${API}/s3/ingest-normalized`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bucket: currentBucket, key: selectedFile.key, text, topic, synthesize: true }),
+    });
+    const data = await r.json() as any;
+    if (data.error) throw new Error(data.error);
+
+    const wikiLinks = [
+      ...(data.wikiPagesCreated || []),
+      ...(data.wikiPagesUpdated || []),
+    ].map((p: string) => {
+      const name = p.split('/').pop()?.replace(/\.md$/, '').replace(/-/g, ' ') ?? p;
+      return `<a href="https://mw.openfs.derekethandavis.com/wiki/${encodeURIComponent(name)}" target="_blank">${name}</a>`;
+    }).join(', ');
+    resultEl.className = 'norm-ingest-result ok';
+    resultEl.innerHTML = `✓ ${data.chunksStored} chunks · ${data.entitiesExtracted ?? 0} entities` +
+      (wikiLinks ? ` · wiki: ${wikiLinks}` : '');
+  } catch (e) {
+    resultEl.className = 'norm-ingest-result err';
+    resultEl.textContent = `Error: ${(e as Error).message}`;
+  } finally {
+    resultEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Ingest Normalized → Chroma + Wiki';
+  }
+}
+
+// ── Wire up events ────────────────────────────────────────────────────────────
+
+document.getElementById('bucket-select')!.addEventListener('change', (e) => {
+  const bucket = (e.target as HTMLSelectElement).value;
+  if (bucket) browse(bucket, '');
+});
+
+document.getElementById('btn-refresh')!.addEventListener('click', () => {
+  if (currentBucket) browse(currentBucket, currentPrefix);
+  else loadBuckets();
+});
+
+document.getElementById('btn-preview')!.addEventListener('click', runPreview);
+document.getElementById('btn-normalize')!.addEventListener('click', runNormalize);
+document.getElementById('btn-ingest-normalized')!.addEventListener('click', ingestNormalized);
+
+document.getElementById('btn-ingest-file')!.addEventListener('click', () => {
+  if (!selectedFile) return;
+  // Ingest just this file's prefix (its key)
+  const topic = (document.getElementById('ingest-topic') as HTMLInputElement).value;
+  ingest(currentBucket, selectedFile.key, topic || undefined);
+});
+
+document.getElementById('btn-ingest')!.addEventListener('click', () => {
+  const topic = (document.getElementById('ingest-topic') as HTMLInputElement).value;
+  const chunkSize = parseInt((document.getElementById('ingest-chunk') as HTMLInputElement).value) || 1200;
+  ingest(currentBucket, currentPrefix, topic || undefined, chunkSize);
+});
+
+// ── Document viewer ──────────────────────────────────────────────────────────
+
+const PDF_EXTS  = new Set(['.pdf']);
+const XLSX_EXTS = new Set(['.xlsx', '.xls']);
+const DOCX_EXTS = new Set(['.docx', '.doc']);
+
+async function loadDocViewer(bucket: string, key: string) {
+  const ext = ('.' + key.split('.').pop()!.toLowerCase()) as string;
+
+  // hide all viewers
+  const hint      = document.getElementById('doc-hint')!;
+  const pdfFrame  = document.getElementById('doc-pdf') as HTMLIFrameElement;
+  const xlsxWrap  = document.getElementById('doc-xlsx')!;
+  const docxWrap  = document.getElementById('doc-docx')!;
+  const unsupEl   = document.getElementById('doc-unsupported')!;
+
+  hint.style.display = 'none';
+  pdfFrame.style.display = 'none';
+  xlsxWrap.style.display = 'none';
+  docxWrap.style.display = 'none';
+  unsupEl.style.display  = 'none';
+
+  const rawUrl = `${API}/s3/raw?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(key)}`;
+
+  if (PDF_EXTS.has(ext)) {
+    pdfFrame.src = rawUrl;
+    pdfFrame.style.display = 'block';
+
+  } else if (XLSX_EXTS.has(ext)) {
+    xlsxWrap.style.display = 'flex';
+    const sheetTabs  = document.getElementById('sheet-tabs')!;
+    const tableWrap  = document.getElementById('xlsx-table-wrap')!;
+    sheetTabs.innerHTML = '<span style="font-size:0.75rem;color:#999;padding:6px">Loading…</span>';
+    tableWrap.innerHTML = '';
+
+    // Load SheetJS from CDN
+    if (!(window as any).XLSX) {
+      await new Promise<void>((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload = () => res();
+        s.onerror = () => rej(new Error('Failed to load SheetJS'));
+        document.head.appendChild(s);
+      });
+    }
+    const XLSX = (window as any).XLSX;
+
+    const res  = await fetch(rawUrl);
+    const ab   = await res.arrayBuffer();
+    const wb   = XLSX.read(ab, { type: 'array' });
+
+    let activeSheet = wb.SheetNames[0];
+
+    function renderSheet(name: string) {
+      activeSheet = name;
+      // Update tab styles
+      sheetTabs.querySelectorAll('.sheet-tab').forEach(t =>
+        t.classList.toggle('active', (t as HTMLElement).dataset.sheet === name)
+      );
+      const ws  = wb.Sheets[name];
+      const html = XLSX.utils.sheet_to_html(ws, { header: '', editable: false });
+      tableWrap.innerHTML = html;
+      // Style the table
+      const tbl = tableWrap.querySelector('table');
+      if (tbl) {
+        tbl.querySelectorAll('tr:first-child td').forEach((td: any) => {
+          const th = document.createElement('th');
+          th.textContent = td.textContent;
+          td.replaceWith(th);
+        });
+      }
+    }
+
+    // Build sheet tabs
+    sheetTabs.innerHTML = '';
+    for (const name of wb.SheetNames) {
+      const btn = document.createElement('button');
+      btn.className = 'sheet-tab' + (name === activeSheet ? ' active' : '');
+      btn.textContent = name;
+      btn.dataset.sheet = name;
+      btn.addEventListener('click', () => renderSheet(name));
+      sheetTabs.appendChild(btn);
+    }
+    renderSheet(activeSheet);
+
+  } else if (DOCX_EXTS.has(ext)) {
+    docxWrap.style.display = 'block';
+    docxWrap.innerHTML = '<div style="padding:20px;color:#999;font-size:0.8rem">Loading document…</div>';
+
+    // Load mammoth.js from CDN
+    if (!(window as any).mammoth) {
+      await new Promise<void>((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+        s.onload = () => res();
+        s.onerror = () => rej(new Error('Failed to load mammoth'));
+        document.head.appendChild(s);
+      });
+    }
+    const mammoth = (window as any).mammoth;
+
+    const res = await fetch(rawUrl);
+    const ab  = await res.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer: ab });
+    docxWrap.innerHTML = result.value || '<em>No content extracted</em>';
+
+  } else {
+    unsupEl.style.display = 'block';
+  }
+}
+
+// Hook into tab switch to lazy-load the viewer
+const origSwitchTab = switchTab;
+(window as any)._switchTab = switchTab;
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', async () => {
+    if ((t as HTMLElement).dataset.tab === 'doc' && selectedFile) {
+      await loadDocViewer(currentBucket, selectedFile.key).catch(e => {
+        document.getElementById('doc-hint')!.style.display = 'block';
+        document.getElementById('doc-hint')!.textContent = `Viewer error: ${e.message}`;
+      });
+    }
+  });
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadBuckets();
+loadAllRules();
+</script>
+
+</AppShell>

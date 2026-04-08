@@ -1,0 +1,1356 @@
+---
+import AppShell from '../components/AppShell.astro';
+---
+<AppShell title="Integrations" active="integrations">
+  <div class="int-root">
+
+    <!-- ── Left panel: sources + list ── -->
+    <div class="int-left">
+      <div class="int-left-inner">
+
+        <!-- Sources -->
+        <div class="section-label">
+          Available Sources
+          <button class="btn-sm-blue" id="btn-add">+ Add</button>
+        </div>
+        <div class="sources-grid">
+          <div class="source-card" data-type="sharepoint">
+            <div class="source-icon sp">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.5 3C7.46 3 5 5.46 5 8.5c0 .5.07.98.18 1.44A4.5 4.5 0 0 0 4.5 19H18a3 3 0 0 0 3-3 3 3 0 0 0-2.13-2.87A5.5 5.5 0 0 0 13.5 8c0-.17.01-.34.02-.5A3 3 0 0 0 10.5 3z"/></svg>
+            </div>
+            <div class="source-info">
+              <div class="source-name">SharePoint</div>
+              <div class="source-desc">MS Graph API</div>
+            </div>
+            <button class="btn-connect" data-type="sharepoint">Connect</button>
+          </div>
+
+          <div class="source-card" data-type="jira">
+            <div class="source-icon jira">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.53 2.1 6.1 7.53a1.5 1.5 0 0 0 0 2.12l2.12 2.12 5.43-5.43a1.5 1.5 0 0 1 2.12 0l5.43 5.43 2.12-2.12a1.5 1.5 0 0 0 0-2.12L13.65 2.1a1.5 1.5 0 0 0-2.12 0zM12 9.17l-5.43 5.43a1.5 1.5 0 0 0 0 2.12l5.43 5.43a1.5 1.5 0 0 0 2.12 0l5.43-5.43a1.5 1.5 0 0 0 0-2.12L12 9.17z"/></svg>
+            </div>
+            <div class="source-info">
+              <div class="source-name">Jira</div>
+              <div class="source-desc">Issues &amp; projects</div>
+            </div>
+            <button class="btn-connect" data-type="jira">Connect</button>
+          </div>
+
+          <div class="source-card" data-type="slack">
+            <div class="source-icon slack">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5.04 15.56a2.08 2.08 0 1 1-2.08-2.08h2.08v2.08zm1.04 0a2.08 2.08 0 0 1 4.16 0v5.2a2.08 2.08 0 0 1-4.16 0v-5.2zM8.44 5.04a2.08 2.08 0 1 1 2.08-2.08v2.08H8.44zm0 1.04a2.08 2.08 0 0 1 0 4.16H3.24a2.08 2.08 0 0 1 0-4.16h5.2zm10.52 2.08a2.08 2.08 0 1 1 2.08 2.08h-2.08V8.16zm-1.04 0a2.08 2.08 0 0 1-4.16 0V2.96a2.08 2.08 0 0 1 4.16 0v5.2zm-2.08 10.52a2.08 2.08 0 1 1-2.08 2.08v-2.08h2.08zm0-1.04a2.08 2.08 0 0 1 0-4.16h5.2a2.08 2.08 0 0 1 0 4.16h-5.2z"/></svg>
+            </div>
+            <div class="source-info">
+              <div class="source-name">Slack</div>
+              <div class="source-desc">Channels &amp; threads</div>
+            </div>
+            <button class="btn-connect" data-type="slack">Connect</button>
+          </div>
+        </div>
+
+        <!-- Connected list -->
+        <div class="section-label" style="margin-top:1.25rem">
+          Connected
+          <span class="count-badge" id="connected-count">0</span>
+        </div>
+        <div id="connected-list" class="connected-list">
+          <div class="empty-state" id="connected-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <p>No integrations yet</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Right panel: detail view ── -->
+    <div class="int-right" id="detail-panel">
+      <div class="detail-empty" id="detail-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+        <p>Select an integration to view details</p>
+      </div>
+      <div id="detail-content" style="display:none;height:100%;flex-direction:column">
+
+        <!-- Detail header -->
+        <div class="detail-header">
+          <div class="detail-title-row">
+            <div class="int-badge-lg" id="detail-badge">SP</div>
+            <div>
+              <div class="detail-name" id="detail-name"></div>
+              <div class="detail-sub" id="detail-sub"></div>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn-action sync" id="detail-sync">↺ Sync</button>
+            <button class="btn-action s3" id="detail-s3">☁ S3 Sync</button>
+            <button class="btn-action embed" id="detail-embed">⬡ Embed Synced</button>
+            <button class="btn-action ingest" id="detail-ingest-s3">⬡ Ingest S3→Chroma</button>
+            <button class="btn-action danger" id="detail-delete">✕ Delete</button>
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="stats-row" id="detail-stats"></div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+          <button class="tab active" data-tab="files">Synced Files</button>
+          <button class="tab" data-tab="logs">Logs</button>
+          <button class="tab" data-tab="browse" id="tab-browse" style="display:none">Browse &amp; Push</button>
+        </div>
+
+        <!-- Tab: Files (ingested tree) -->
+        <div class="tab-content" id="tab-files" style="overflow-y:auto;flex:1">
+          <div class="tree-root" id="file-tree"></div>
+        </div>
+
+        <!-- Tab: Logs -->
+        <div class="tab-content" id="tab-logs" style="display:none;overflow-y:auto;flex:1">
+          <div class="log-panel" id="log-panel"></div>
+        </div>
+
+        <!-- Tab: Browse & Push (SharePoint file browser) -->
+        <div id="tab-browse-panel" style="display:none;flex:1;overflow:hidden;display:flex;flex-direction:column">
+          <!-- Browser toolbar -->
+          <div class="browser-toolbar">
+            <div class="breadcrumb" id="sp-breadcrumb"></div>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
+              <span class="selection-count" id="selection-count" style="display:none"></span>
+              <button class="btn-action s3" id="btn-push-s3" style="display:none" disabled>☁ Push to S3</button>
+            </div>
+          </div>
+
+          <!-- Browser body: drives sidebar + file list -->
+          <div class="browser-body">
+            <!-- Left: document libraries -->
+            <div class="browser-drives" id="browser-drives">
+              <div class="browser-section-lbl">Document Libraries</div>
+              <div id="drives-list"></div>
+            </div>
+            <!-- Right: folder contents -->
+            <div class="browser-files" id="browser-files">
+              <div id="file-browser-list">
+                <div style="color:var(--muted);font-size:0.82rem;padding:1rem">Select a document library to browse</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</AppShell>
+
+<!-- ── Setup Modal ── -->
+<div class="modal-backdrop" id="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Connect Integration</span>
+      <button class="btn-ghost" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-save">Connect</button>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  /* ── Root layout ── */
+  .int-root {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
+  }
+
+  /* ── Left panel ── */
+  .int-left {
+    width: 320px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    background: var(--bg);
+  }
+  .int-left-inner { padding: 1.25rem 1rem; }
+
+  /* ── Right panel ── */
+  .int-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: white;
+  }
+  .detail-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .detail-empty p { margin: 0; }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .count-badge {
+    background: var(--navy);
+    color: white;
+    font-size: 0.62rem;
+    padding: 0.08rem 0.42rem;
+    border-radius: 20px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .btn-sm-blue {
+    margin-left: auto;
+    padding: 0.2rem 0.55rem;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+  }
+
+  /* ── Sources grid ── */
+  .sources-grid { display: flex; flex-direction: column; gap: 0.4rem; }
+  .source-card {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.15s;
+  }
+  .source-card:hover { border-color: var(--navy-light); }
+  .source-icon {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .source-icon.sp    { background: #e3f0ff; color: #0078d4; }
+  .source-icon.jira  { background: #e3eaff; color: #0052cc; }
+  .source-icon.slack { background: #f0e8ff; color: #611f69; }
+  .source-info { flex: 1; min-width: 0; }
+  .source-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .source-desc { font-size: 0.7rem; color: var(--muted); }
+  .btn-connect {
+    padding: 0.28rem 0.7rem;
+    border-radius: 5px;
+    background: var(--navy-light);
+    color: var(--navy);
+    border: 1px solid var(--border);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: var(--font);
+    transition: all 0.1s;
+  }
+  .btn-connect:hover { background: var(--navy); color: white; }
+
+  /* ── Connected list ── */
+  .connected-list { display: flex; flex-direction: column; gap: 0.35rem; }
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 1.5rem;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    text-align: center;
+  }
+  .empty-state p { margin: 0; }
+  .int-card {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .int-card:hover { border-color: var(--navy-light); }
+  .int-card.selected { border-color: var(--navy); background: #f0f4ff; }
+  .int-badge {
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.58rem; font-weight: 700; flex-shrink: 0;
+  }
+  .int-badge.sharepoint { background: #e3f0ff; color: #0078d4; }
+  .int-badge.jira       { background: #e3eaff; color: #0052cc; }
+  .int-badge.slack      { background: #f0e8ff; color: #611f69; }
+  .int-main { flex: 1; min-width: 0; }
+  .int-name { font-size: 0.83rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .int-meta { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; display: flex; align-items: center; gap: 0.3rem; }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.connected { background: #22c55e; }
+  .status-dot.error     { background: #ef4444; }
+  .status-dot.syncing   { background: #f59e0b; animation: pulse 1s infinite; }
+  .status-dot.pending   { background: #94a3b8; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── Detail header ── */
+  .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .detail-title-row { display: flex; align-items: center; gap: 0.75rem; }
+  .int-badge-lg {
+    width: 38px; height: 38px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
+  }
+  .int-badge-lg.sharepoint { background: #e3f0ff; color: #0078d4; }
+  .int-badge-lg.jira       { background: #e3eaff; color: #0052cc; }
+  .int-badge-lg.slack      { background: #f0e8ff; color: #611f69; }
+  .detail-name { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+  .detail-sub  { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+  .detail-actions { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+  .btn-action {
+    padding: 0.32rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: all 0.1s;
+    white-space: nowrap;
+  }
+  .btn-action:hover { background: var(--navy); color: white; border-color: var(--navy); }
+  .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-action.sync  { color: #0078d4; border-color: #bfdbfe; }
+  .btn-action.sync:hover  { background: #0078d4; color: white; border-color: #0078d4; }
+  .btn-action.s3    { color: #d97706; border-color: #fde68a; }
+  .btn-action.s3:hover    { background: #d97706; color: white; border-color: #d97706; }
+  .btn-action.embed { color: #7c3aed; border-color: #ddd6fe; }
+  .btn-action.embed:hover { background: #7c3aed; color: white; border-color: #7c3aed; }
+  .btn-action.ingest { color: #059669; border-color: #a7f3d0; }
+  .btn-action.ingest:hover { background: #059669; color: white; border-color: #059669; }
+  .btn-action.danger { color: #ef4444; border-color: #fecaca; }
+  .btn-action.danger:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .stat-box {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-box:last-child { border-right: none; }
+  .stat-val { font-size: 1.1rem; font-weight: 700; color: var(--navy); }
+  .stat-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 0.1rem; }
+
+  /* ── Tabs ── */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 0 1rem;
+  }
+  .tab {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.1s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--navy); border-bottom-color: var(--navy); }
+
+  /* ── Tab contents ── */
+  .tab-content { padding: 0.75rem 1rem; }
+
+  /* ── File tree ── */
+  .tree-root { font-family: var(--mono); font-size: 0.78rem; }
+  .tree-folder {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.25rem;
+    cursor: pointer;
+    color: var(--text);
+    border-radius: 4px;
+    font-weight: 600;
+    user-select: none;
+  }
+  .tree-folder:hover { background: var(--surface); }
+  .tree-folder-icon { color: var(--muted); font-size: 0.7rem; transition: transform 0.15s; }
+  .tree-folder-icon.open { transform: rotate(90deg); }
+  .tree-children { padding-left: 1.1rem; border-left: 1px solid var(--border); margin-left: 0.5rem; }
+  .tree-file {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.18rem 0.25rem;
+    border-radius: 4px;
+    color: var(--muted);
+  }
+  .tree-file:hover { background: var(--surface); color: var(--text); }
+  .tree-file-name { flex: 1; color: var(--text); }
+  .tree-file-size { color: var(--muted); font-size: 0.7rem; }
+  .tree-file-link { color: var(--navy); text-decoration: none; font-size: 0.7rem; }
+  .tree-file-link:hover { text-decoration: underline; }
+
+  /* ── Log panel ── */
+  .log-panel {
+    background: #0f1117;
+    border-radius: 7px;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .log-entry { display: flex; gap: 0.6rem; align-items: flex-start; }
+  .log-ts    { color: #555; flex-shrink: 0; font-size: 0.68rem; padding-top: 0.05rem; }
+  .log-msg   { color: #d0d0e0; flex: 1; }
+  .log-entry.ok   .log-msg { color: #4ade80; }
+  .log-entry.error .log-msg { color: #f87171; }
+  .log-entry.warn .log-msg { color: #fbbf24; }
+
+  /* ── File browser ── */
+  .browser-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .breadcrumb-item {
+    cursor: pointer;
+    color: var(--navy);
+    padding: 0.1rem 0.25rem;
+    border-radius: 3px;
+  }
+  .breadcrumb-item:hover { text-decoration: underline; }
+  .breadcrumb-sep { color: var(--muted); }
+  .breadcrumb-item.current { color: var(--text); cursor: default; font-weight: 600; }
+  .breadcrumb-item.current:hover { text-decoration: none; }
+  .selection-count {
+    font-size: 0.75rem;
+    color: var(--navy);
+    font-weight: 600;
+    background: var(--navy-light);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+  }
+
+  .browser-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  .browser-drives {
+    width: 180px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 0.75rem 0;
+    overflow-y: auto;
+    background: var(--surface);
+  }
+  .browser-section-lbl {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+  .drive-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--text);
+    transition: background 0.1s;
+    border-left: 2px solid transparent;
+  }
+  .drive-item:hover { background: white; }
+  .drive-item.active { border-left-color: var(--navy); background: white; color: var(--navy); font-weight: 600; }
+
+  .browser-files {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  /* File browser table */
+  .file-browser-table { width: 100%; border-collapse: collapse; }
+  .file-browser-table th {
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+  }
+  .file-browser-table th:first-child { width: 28px; }
+  .file-row {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  .file-row:hover { background: #f8fafc; }
+  .file-row.folder-row { color: var(--text); }
+  .file-row td { padding: 0.45rem 0.75rem; font-size: 0.8rem; vertical-align: middle; }
+  .file-row td:first-child { width: 28px; }
+  .file-icon { font-size: 1rem; }
+  .file-name { font-weight: 500; color: var(--text); }
+  .folder-name { font-weight: 600; color: var(--navy); }
+  .file-size { color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+  .file-date { color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+  .file-ext-badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 0.08rem 0.35rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .ext-docx { background: #dbeafe; color: #1d4ed8; }
+  .ext-xlsx { background: #dcfce7; color: #15803d; }
+  .ext-pdf  { background: #fee2e2; color: #b91c1c; }
+  .ext-pptx { background: #fef3c7; color: #92400e; }
+  .ext-txt, .ext-md { background: #f1f5f9; color: #475569; }
+  .ext-other { background: #f1f5f9; color: #64748b; }
+
+  input[type="checkbox"].file-check {
+    width: 14px; height: 14px; cursor: pointer; accent-color: var(--navy);
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    padding: 0.45rem 1rem;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: opacity 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost {
+    padding: 0.35rem 0.7rem;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: var(--font);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+  /* ── Modal ── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal {
+    background: white;
+    border-radius: 12px;
+    width: 500px;
+    max-width: 96vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .modal-title { font-weight: 600; font-size: 0.95rem; }
+  .modal-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 0.5rem;
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-label { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+  .form-hint  { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
+  .form-input {
+    padding: 0.48rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.83rem;
+    font-family: var(--font);
+    color: var(--text);
+    background: white;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.1s;
+  }
+  .form-input:focus { outline: none; border-color: var(--navy); }
+  .form-input.error { border-color: #ef4444; background: #fef2f2; }
+  .form-input[type="password"] { font-family: var(--mono); letter-spacing: 0.06em; }
+  .form-section-title {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .help-link { font-size: 0.72rem; color: var(--navy); text-decoration: none; }
+  .help-link:hover { text-decoration: underline; }
+</style>
+
+<script>
+  const SERVER = "http://localhost:4322";
+
+  async function apiFetch(path, body, method) {
+    const m = method ?? (body !== undefined ? "POST" : "GET");
+    const opts = { method: m, headers: { "Content-Type": "application/json" } };
+    if (body !== null && body !== undefined) opts.body = JSON.stringify(body);
+    const res = await fetch(`${SERVER}${path}`, opts);
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data, status: res.status };
+  }
+
+  // ── Forms config ─────────────────────────────────────────────────────────────
+  const FORMS = {
+    sharepoint: {
+      title: "Connect SharePoint",
+      help: "https://learn.microsoft.com/en-us/graph/auth-register-app-v2",
+      helpText: "Azure app registration guide →",
+      fields: [
+        { key: "name",          label: "Integration Name",        placeholder: "My SharePoint",                              type: "text" },
+        { key: "tenant_id",     label: "Tenant ID",               placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",       type: "text",     hint: "Azure Portal → Azure Active Directory → Overview → Directory (tenant) ID" },
+        { key: "client_id",     label: "Client (Application) ID", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",       type: "text",     hint: "App registrations → your app → Application (client) ID" },
+        { key: "client_secret", label: "Client Secret",           placeholder: "your-client-secret-value",                   type: "password", hint: "App registrations → Certificates & secrets → New client secret" },
+        { key: "site_url",      label: "SharePoint Site URL",     placeholder: "https://company.sharepoint.com/sites/mysite", type: "text",    hint: "Full URL of the SharePoint site root (not a page)" },
+        { key: "drive_name",    label: "Document Library",        placeholder: "Documents (leave blank for all)",             type: "text",    hint: "Optional — specific library name. Leave blank to sync all libraries." },
+      ],
+    },
+    jira: {
+      title: "Connect Jira",
+      help: "https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/",
+      helpText: "How to create a Jira API token →",
+      fields: [
+        { key: "name",          label: "Integration Name", placeholder: "My Jira",                         type: "text" },
+        { key: "base_url",      label: "Jira Base URL",    placeholder: "https://company.atlassian.net",   type: "text" },
+        { key: "email",         label: "Account Email",    placeholder: "you@company.com",                 type: "text" },
+        { key: "api_token",     label: "API Token",        placeholder: "your-jira-api-token",             type: "password", hint: "Create at id.atlassian.com/manage-profile/security/api-tokens" },
+        { key: "project_keys",  label: "Project Keys",     placeholder: "PROJ, TEAM, ENG",                type: "text",     hint: "Comma-separated — leave blank for all projects" },
+      ],
+    },
+    slack: {
+      title: "Connect Slack",
+      help: "https://api.slack.com/start/quickstart",
+      helpText: "How to create a Slack bot →",
+      fields: [
+        { key: "name",        label: "Integration Name", placeholder: "My Slack",                    type: "text" },
+        { key: "bot_token",   label: "Bot Token",        placeholder: "xoxb-...",                   type: "password", hint: "OAuth bot token from your Slack app" },
+        { key: "channel_ids", label: "Channels",         placeholder: "general, engineering, C01...", type: "text",   hint: "Comma-separated channel names or IDs to archive" },
+      ],
+    },
+  };
+
+  const OPTIONAL_FIELDS = new Set(["project_keys", "channel_ids", "drive_name"]);
+
+  const TYPE_ICONS = {
+    sharepoint: "SP",
+    jira:       "JR",
+    slack:      "SL",
+  };
+
+  // ── State ─────────────────────────────────────────────────────────────────────
+  let selectedId   = null;
+  let selectedIntg = null;
+  let currentTab   = "files";
+  let currentType  = null;
+
+  // ── Modal ─────────────────────────────────────────────────────────────────────
+  const backdrop   = document.getElementById("modal-backdrop");
+  const modalTitle = document.getElementById("modal-title");
+  const modalBody  = document.getElementById("modal-body");
+  const modalSave  = document.getElementById("modal-save");
+
+  function openModal(type) {
+    currentType = type;
+    const form = FORMS[type];
+    modalTitle.textContent = form.title;
+    modalBody.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="form-section-title">${type.toUpperCase()} CREDENTIALS</span>
+        <a href="${form.help}" target="_blank" class="help-link">${form.helpText}</a>
+      </div>
+      ${form.fields.map(f => `
+        <div class="form-group">
+          <label class="form-label" for="field-${f.key}">${f.label}${OPTIONAL_FIELDS.has(f.key) ? ' <span style="color:var(--muted);font-weight:400">(optional)</span>' : ''}</label>
+          ${f.hint ? `<span class="form-hint">${f.hint}</span>` : ""}
+          <input class="form-input" id="field-${f.key}" type="${f.type}" placeholder="${f.placeholder}" />
+        </div>
+      `).join("")}
+    `;
+    backdrop.style.display = "flex";
+    setTimeout(() => document.getElementById("field-name")?.focus(), 50);
+  }
+
+  function closeModal() {
+    backdrop.style.display = "none";
+    currentType = null;
+  }
+
+  document.getElementById("modal-close").onclick = closeModal;
+  document.getElementById("modal-cancel").onclick = closeModal;
+  backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
+
+  modalSave.onclick = async () => {
+    if (!currentType) return;
+    const form = FORMS[currentType];
+    const values = {};
+    let valid = true;
+    for (const f of form.fields) {
+      const el = document.getElementById(`field-${f.key}`);
+      const val = el?.value?.trim() ?? "";
+      el?.classList.remove("error");
+      if (!val && !OPTIONAL_FIELDS.has(f.key)) {
+        el?.classList.add("error");
+        if (valid) el?.focus();
+        valid = false;
+      }
+      values[f.key] = val;
+    }
+    if (!valid) return;
+
+    const name = values.name;
+    delete values.name;
+
+    modalSave.disabled = true;
+    modalSave.textContent = "Connecting…";
+
+    const r = await apiFetch("/integrations", { type: currentType, name, config: values });
+    if (!r.ok) {
+      modalSave.disabled = false;
+      modalSave.textContent = "Connect";
+      alert(`Failed: ${r.data.error ?? "unknown error"}`);
+      return;
+    }
+    closeModal();
+    await loadIntegrations();
+
+    // Auto-sync on first connect
+    const newId = r.data.id;
+    await runSync(newId);
+    modalSave.disabled = false;
+    modalSave.textContent = "Connect";
+  };
+
+  // ── Connect buttons ───────────────────────────────────────────────────────────
+  document.querySelectorAll(".btn-connect").forEach(btn =>
+    btn.addEventListener("click", () => openModal(btn.getAttribute("data-type")))
+  );
+  document.getElementById("btn-add").onclick = () => openModal("sharepoint");
+
+  // ── Sync helper ───────────────────────────────────────────────────────────────
+  async function runSync(id) {
+    setDetailAction("sync", true, "Syncing…");
+    const r = await apiFetch(`/integrations/${id}/sync`, {});
+    setDetailAction("sync", false, "↺ Sync");
+    await loadIntegrations();
+    if (selectedId === id) await openDetail(id);
+    return r;
+  }
+
+  function setDetailAction(cls, disabled, text) {
+    const btn = document.querySelector(`.btn-action.${cls}`);
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.textContent = text;
+  }
+
+  // ── Render left list ──────────────────────────────────────────────────────────
+  function renderList(list) {
+    const container = document.getElementById("connected-list");
+    const emptyEl   = document.getElementById("connected-empty");
+    const countEl   = document.getElementById("connected-count");
+    countEl.textContent = list.length;
+    container.querySelectorAll(".int-card").forEach(el => el.remove());
+
+    if (!list.length) { emptyEl.style.display = "flex"; return; }
+    emptyEl.style.display = "none";
+
+    for (const intg of list) {
+      const card = document.createElement("div");
+      card.className = `int-card${intg.id === selectedId ? " selected" : ""}`;
+      card.dataset.id = intg.id;
+
+      const lastSync = intg.last_sync
+        ? new Date(intg.last_sync + "Z").toLocaleDateString()
+        : "never";
+
+      card.innerHTML = `
+        <div class="int-badge ${intg.type}">${TYPE_ICONS[intg.type] ?? "??"}</div>
+        <div class="int-main">
+          <div class="int-name">${intg.name}</div>
+          <div class="int-meta">
+            <span class="status-dot ${intg.status}"></span>
+            ${intg.status} · ${intg.doc_count} docs · ${lastSync}
+          </div>
+        </div>
+      `;
+
+      card.addEventListener("click", () => {
+        document.querySelectorAll(".int-card").forEach(c => c.classList.remove("selected"));
+        card.classList.add("selected");
+        selectedId = intg.id;
+        openDetail(intg.id);
+      });
+
+      container.appendChild(card);
+    }
+  }
+
+  // ── Detail panel ─────────────────────────────────────────────────────────────
+  async function openDetail(id) {
+    const r = await apiFetch(`/integrations/${id}`);
+    if (!r.ok) return;
+    const intg = r.data;
+    selectedIntg = intg;
+    selectedId = id;
+
+    document.getElementById("detail-empty").style.display = "none";
+    const content = document.getElementById("detail-content");
+    content.style.cssText = "display:flex;height:100%;flex-direction:column";
+
+    // Badge
+    const badge = document.getElementById("detail-badge");
+    badge.className = `int-badge-lg ${intg.type}`;
+    badge.textContent = TYPE_ICONS[intg.type] ?? "??";
+
+    // Name + sub
+    document.getElementById("detail-name").textContent = intg.name;
+    const lastSync = intg.last_sync
+      ? new Date(intg.last_sync + "Z").toLocaleString()
+      : "never synced";
+    document.getElementById("detail-sub").innerHTML =
+      `<span class="status-dot ${intg.status}" style="display:inline-block;margin-right:0.3rem"></span>${intg.type} · ${intg.status} · last sync: ${lastSync}`;
+
+    // Stats
+    const totalSize = await getDocsSize(id);
+    document.getElementById("detail-stats").innerHTML = `
+      <div class="stat-box"><div class="stat-val">${intg.doc_count}</div><div class="stat-lbl">Documents</div></div>
+      <div class="stat-box"><div class="stat-val" style="text-transform:capitalize">${intg.status}</div><div class="stat-lbl">Status</div></div>
+      <div class="stat-box"><div class="stat-val">${totalSize}</div><div class="stat-lbl">Total Size</div></div>
+      <div class="stat-box"><div class="stat-val">${intg.type}</div><div class="stat-lbl">Source</div></div>
+    `;
+
+    // Show/hide Browse tab (SharePoint only)
+    const browseTab = document.getElementById("tab-browse");
+    browseTab.style.display = intg.type === "sharepoint" ? "inline-block" : "none";
+
+    // Wire action buttons
+    document.getElementById("detail-sync").onclick = () => runSync(id);
+    document.getElementById("detail-s3").onclick = async () => {
+      setDetailAction("s3", true, "Syncing…");
+      const r = await apiFetch(`/integrations/${id}/s3-sync`, {});
+      setDetailAction("s3", false, "☁ S3 Sync");
+      if (r.ok) {
+        alert(`S3 sync complete: ${r.data.uploaded} files uploaded to bucket ${r.data.bucket}`);
+      } else {
+        alert(`S3 sync failed: ${r.data.error}`);
+      }
+      await openDetail(id);
+    };
+    document.getElementById("detail-embed").onclick = async () => {
+      setDetailAction("embed", true, "Embedding…");
+      const r = await apiFetch(`/integrations/${id}/embed`, {});
+      setDetailAction("embed", false, "⬡ Embed Synced");
+      if (r.ok) {
+        alert(`Embedding complete: ${r.data.embedded} docs embedded into Chroma`);
+      } else {
+        alert(`Embedding failed: ${r.data.error}`);
+      }
+    };
+    document.getElementById("detail-ingest-s3").onclick = async () => {
+      setDetailAction("ingest", true, "Ingesting…");
+      const r = await apiFetch(`/integrations/${id}/ingest-from-s3`, {});
+      setDetailAction("ingest", false, "⬡ Ingest S3→Chroma");
+      if (r.ok) {
+        alert(`S3→Chroma complete!\nBucket: ${r.data.bucket}\nEmbedded: ${r.data.embedded} files\nSkipped: ${r.data.skipped}\nErrors: ${r.data.errors.length}`);
+      } else {
+        alert(`Ingest failed: ${r.data.error}`);
+      }
+    };
+    document.getElementById("detail-delete").onclick = async () => {
+      if (!confirm(`Delete "${intg.name}" and all its documents?`)) return;
+      await apiFetch(`/integrations/${id}`, null, "DELETE");
+      selectedId = null;
+      selectedIntg = null;
+      document.getElementById("detail-content").style.display = "none";
+      document.getElementById("detail-empty").style.display = "flex";
+      await loadIntegrations();
+    };
+
+    // Load active tab
+    await loadTab(currentTab, id);
+  }
+
+  async function getDocsSize(id) {
+    const r = await apiFetch(`/integrations/${id}/docs`);
+    if (!r.ok) return "—";
+    const total = (r.data || []).reduce((acc, d) => acc + (d.size_bytes || 0), 0);
+    if (total < 1024) return `${total} B`;
+    if (total < 1024 * 1024) return `${(total / 1024).toFixed(1)} KB`;
+    return `${(total / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────────
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentTab = tab.dataset.tab;
+      if (selectedId) loadTab(currentTab, selectedId);
+    });
+  });
+
+  async function loadTab(tab, id) {
+    document.getElementById("tab-files").style.display        = "none";
+    document.getElementById("tab-logs").style.display         = "none";
+    document.getElementById("tab-browse-panel").style.display = "none";
+
+    if (tab === "files") {
+      document.getElementById("tab-files").style.display = "block";
+      await loadFileTree(id);
+    } else if (tab === "logs") {
+      document.getElementById("tab-logs").style.display = "block";
+      await loadLogs(id);
+    } else if (tab === "browse") {
+      document.getElementById("tab-browse-panel").style.cssText = "display:flex;flex:1;overflow:hidden;flex-direction:column";
+      await initBrowser(id);
+    }
+  }
+
+  // ── File tree ─────────────────────────────────────────────────────────────────
+  async function loadFileTree(id) {
+    const treeEl = document.getElementById("file-tree");
+    treeEl.innerHTML = `<div style="color:var(--muted);font-size:0.78rem;padding:0.5rem">Loading…</div>`;
+    const r = await apiFetch(`/integrations/${id}/tree`);
+    if (!r.ok) { treeEl.innerHTML = `<div style="color:#ef4444;font-size:0.78rem">Failed to load file tree</div>`; return; }
+    treeEl.innerHTML = "";
+    renderTree(treeEl, r.data, 0);
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  }
+
+  function renderTree(parent, node, depth) {
+    if (node.files?.length === 0 && node.children?.length === 0) {
+      if (depth === 0) {
+        const empty = document.createElement("div");
+        empty.style.cssText = "color:var(--muted);font-size:0.78rem;padding:0.5rem";
+        empty.textContent = "No documents — run a sync";
+        parent.appendChild(empty);
+      }
+      return;
+    }
+
+    // Render children (folders)
+    for (const child of (node.children || [])) {
+      const folder = document.createElement("div");
+      const arrow  = document.createElement("span");
+      arrow.className = "tree-folder-icon open";
+      arrow.textContent = "▶";
+      const folderRow = document.createElement("div");
+      folderRow.className = "tree-folder";
+      folderRow.innerHTML = `<span style="color:#f59e0b">📁</span>`;
+      folderRow.appendChild(arrow);
+      folderRow.insertAdjacentHTML("beforeend", `<span>${child.name}</span>`);
+
+      const children = document.createElement("div");
+      children.className = "tree-children";
+      renderTree(children, child, depth + 1);
+
+      folderRow.addEventListener("click", () => {
+        const open = arrow.classList.toggle("open");
+        children.style.display = open ? "block" : "none";
+      });
+
+      folder.appendChild(folderRow);
+      folder.appendChild(children);
+      parent.appendChild(folder);
+    }
+
+    // Render files
+    for (const file of (node.files || [])) {
+      const row = document.createElement("div");
+      row.className = "tree-file";
+      row.innerHTML = `
+        <span style="color:#94a3b8">📄</span>
+        <span class="tree-file-name">${file.name}</span>
+        <span class="tree-file-size">${formatSize(file.size)}</span>
+        ${file.url ? `<a class="tree-file-link" href="${file.url}" target="_blank">↗</a>` : ""}
+      `;
+      parent.appendChild(row);
+    }
+  }
+
+  // ── Logs ──────────────────────────────────────────────────────────────────────
+  async function loadLogs(id) {
+    const logEl = document.getElementById("log-panel");
+    logEl.innerHTML = `<div style="color:#555;font-size:0.74rem">Loading logs…</div>`;
+    const r = await apiFetch(`/integrations/${id}/logs?limit=200`);
+    if (!r.ok) { logEl.innerHTML = `<div style="color:#f87171">Failed to load logs</div>`; return; }
+    const logs = r.data;
+    if (!logs.length) {
+      logEl.innerHTML = `<div style="color:#555;font-size:0.74rem">No log entries yet</div>`;
+      return;
+    }
+    logEl.innerHTML = logs.reverse().map(e => {
+      const ts  = e.ts ? e.ts.slice(0, 19).replace("T", " ") : "";
+      return `<div class="log-entry ${e.level === "ok" ? "ok" : e.level === "error" ? "error" : e.level === "warn" ? "warn" : ""}">
+        <span class="log-ts">${ts}</span>
+        <span class="log-msg">${e.message}</span>
+      </div>`;
+    }).join("");
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ── File Browser (Browse & Push tab) ──────────────────────────────────────────
+  const browserState = {
+    id: null,
+    drives: [],
+    activeDriveId: null,
+    activeDriveName: "",
+    stack: [],      // navigation stack: [{id, name}]
+    selected: new Map(), // itemId → {driveId, itemId, name, s3Path}
+  };
+
+  function extBadge(name) {
+    const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+    const cls = ["docx","doc"].includes(ext) ? "ext-docx"
+              : ["xlsx","xls","csv"].includes(ext) ? "ext-xlsx"
+              : ext === "pdf" ? "ext-pdf"
+              : ["pptx","ppt"].includes(ext) ? "ext-pptx"
+              : ["md","txt"].includes(ext) ? "ext-txt"
+              : "ext-other";
+    return `<span class="file-ext-badge ${cls}">${ext}</span>`;
+  }
+
+  function updateSelectionUI() {
+    const count = browserState.selected.size;
+    const countEl = document.getElementById("selection-count");
+    const pushBtn = document.getElementById("btn-push-s3");
+    if (count > 0) {
+      countEl.textContent = `${count} selected`;
+      countEl.style.display = "inline-block";
+      pushBtn.style.display = "inline-block";
+      pushBtn.disabled = false;
+      pushBtn.textContent = `☁ Push ${count} to S3`;
+    } else {
+      countEl.style.display = "none";
+      pushBtn.style.display = "none";
+    }
+  }
+
+  function buildBreadcrumb() {
+    const el = document.getElementById("sp-breadcrumb");
+    const { activeDriveName, stack } = browserState;
+    if (!activeDriveName) { el.innerHTML = ""; return; }
+
+    const crumbs = [{ id: "root", name: activeDriveName }];
+    crumbs.push(...stack.filter(s => s.id !== "root"));
+
+    el.innerHTML = crumbs.map((c, i) => {
+      const isLast = i === crumbs.length - 1;
+      return `${i > 0 ? '<span class="breadcrumb-sep">/</span>' : ""}
+        <span class="breadcrumb-item${isLast ? " current" : ""}" data-idx="${i}">${c.name}</span>`;
+    }).join("");
+
+    el.querySelectorAll(".breadcrumb-item:not(.current)").forEach(el => {
+      el.addEventListener("click", () => {
+        const idx = parseInt(el.dataset.idx);
+        browserState.stack = browserState.stack.slice(0, idx);
+        loadBrowserFolder();
+      });
+    });
+  }
+
+  async function initBrowser(id) {
+    browserState.id = id;
+    browserState.drives = [];
+    browserState.activeDriveId = null;
+    browserState.activeDriveName = "";
+    browserState.stack = [];
+    browserState.selected.clear();
+    updateSelectionUI();
+
+    const drivesEl = document.getElementById("drives-list");
+    drivesEl.innerHTML = `<div style="color:var(--muted);font-size:0.75rem;padding:0.5rem 0.75rem">Loading…</div>`;
+
+    const r = await apiFetch(`/integrations/${id}/browse`);
+    if (!r.ok) {
+      drivesEl.innerHTML = `<div style="color:#ef4444;font-size:0.75rem;padding:0.5rem 0.75rem">${r.data.error ?? "Failed"}</div>`;
+      return;
+    }
+    browserState.drives = r.data.drives || [];
+    renderDrives();
+  }
+
+  function renderDrives() {
+    const el = document.getElementById("drives-list");
+    el.innerHTML = "";
+    for (const drive of browserState.drives) {
+      const item = document.createElement("div");
+      item.className = `drive-item${drive.id === browserState.activeDriveId ? " active" : ""}`;
+      item.innerHTML = `<span>📚</span><span>${drive.name}</span>`;
+      item.addEventListener("click", () => {
+        browserState.activeDriveId = drive.id;
+        browserState.activeDriveName = drive.name;
+        browserState.stack = [{ id: "root", name: drive.name }];
+        el.querySelectorAll(".drive-item").forEach(d => d.classList.remove("active"));
+        item.classList.add("active");
+        loadBrowserFolder();
+      });
+      el.appendChild(item);
+    }
+  }
+
+  async function loadBrowserFolder() {
+    const { id, activeDriveId, stack } = browserState;
+    const folderId = stack.length > 0 ? stack[stack.length - 1].id : "root";
+    buildBreadcrumb();
+
+    const listEl = document.getElementById("file-browser-list");
+    listEl.innerHTML = `<div style="padding:1rem;color:var(--muted);font-size:0.8rem">Loading…</div>`;
+
+    const r = await apiFetch(`/integrations/${id}/browse?drive_id=${encodeURIComponent(activeDriveId)}&folder_id=${encodeURIComponent(folderId)}`);
+    if (!r.ok) {
+      listEl.innerHTML = `<div style="padding:1rem;color:#ef4444;font-size:0.8rem">${r.data.error ?? "Failed to load folder"}</div>`;
+      return;
+    }
+
+    const items = r.data.items || [];
+    if (!items.length) {
+      listEl.innerHTML = `<div style="padding:1rem;color:var(--muted);font-size:0.8rem">Empty folder</div>`;
+      return;
+    }
+
+    // Sort: folders first, then files alphabetically
+    const folders = items.filter(i => i.isFolder).sort((a, b) => a.name.localeCompare(b.name));
+    const files   = items.filter(i => !i.isFolder).sort((a, b) => a.name.localeCompare(b.name));
+    const sorted  = [...folders, ...files];
+
+    const table = document.createElement("table");
+    table.className = "file-browser-table";
+    table.innerHTML = `<thead><tr>
+      <th><input type="checkbox" id="check-all" class="file-check"></th>
+      <th>Name</th><th>Type</th><th>Size</th><th>Modified</th>
+    </tr></thead>`;
+
+    const tbody = document.createElement("tbody");
+
+    for (const item of sorted) {
+      const tr = document.createElement("tr");
+      tr.className = `file-row${item.isFolder ? " folder-row" : ""}`;
+      const selected = browserState.selected.has(item.id);
+
+      if (item.isFolder) {
+        tr.innerHTML = `
+          <td></td>
+          <td><span class="file-icon">📁</span> <span class="folder-name">${item.name}</span>
+            <span style="color:var(--muted);font-size:0.7rem;margin-left:0.4rem">${item.childCount ? `${item.childCount} items` : ""}</span></td>
+          <td><span class="file-ext-badge ext-other">folder</span></td>
+          <td></td>
+          <td class="file-date">${item.modified}</td>
+        `;
+        tr.addEventListener("click", () => {
+          browserState.stack.push({ id: item.id, name: item.name });
+          loadBrowserFolder();
+        });
+      } else {
+        const driveFolderPath = browserState.stack.map(s => s.name).join("/");
+        const s3Path = `${browserState.activeDriveName}/${driveFolderPath ? driveFolderPath + "/" : ""}${item.name}`.replace(/\/+/g, "/");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "file-check";
+        cb.checked = selected;
+        cb.addEventListener("change", e => {
+          e.stopPropagation();
+          if (cb.checked) {
+            browserState.selected.set(item.id, {
+              driveId: item.driveId,
+              itemId: item.id,
+              name: item.name,
+              s3Path,
+            });
+          } else {
+            browserState.selected.delete(item.id);
+          }
+          updateSelectionUI();
+        });
+
+        const tdCheck = document.createElement("td");
+        tdCheck.appendChild(cb);
+
+        tr.innerHTML = `
+          <td></td>
+          <td><span class="file-icon">📄</span> <span class="file-name">${item.name}</span></td>
+          <td>${extBadge(item.name)}</td>
+          <td class="file-size">${formatSize(item.size)}</td>
+          <td class="file-date">${item.modified}</td>
+        `;
+        tr.cells[0].replaceWith(tdCheck);
+        tr.addEventListener("click", (e) => { if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event("change")); } });
+        if (item.webUrl) {
+          const link = document.createElement("a");
+          link.href = item.webUrl;
+          link.target = "_blank";
+          link.className = "tree-file-link";
+          link.textContent = "↗";
+          link.style.marginLeft = "0.5rem";
+          link.addEventListener("click", e => e.stopPropagation());
+          tr.cells[1].appendChild(link);
+        }
+      }
+      tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    listEl.innerHTML = "";
+    listEl.appendChild(table);
+
+    // Select all checkbox
+    document.getElementById("check-all")?.addEventListener("change", (e) => {
+      const checked = e.target.checked;
+      tbody.querySelectorAll(".file-check").forEach(cb => {
+        cb.checked = checked;
+        cb.dispatchEvent(new Event("change"));
+      });
+    });
+  }
+
+  // Push selected files to S3
+  document.getElementById("btn-push-s3").addEventListener("click", async () => {
+    const files = Array.from(browserState.selected.values());
+    if (!files.length) return;
+    const btn = document.getElementById("btn-push-s3");
+    btn.disabled = true;
+    btn.textContent = "Pushing…";
+    const r = await apiFetch(`/integrations/${browserState.id}/push-to-s3`, { files });
+    btn.disabled = false;
+    updateSelectionUI();
+    if (r.ok) {
+      alert(`✓ Pushed ${r.data.uploaded} files to s3://${r.data.bucket}\n${r.data.skipped} skipped · ${r.data.errors.length} errors`);
+      browserState.selected.clear();
+      updateSelectionUI();
+      // Refresh logs
+      if (currentTab === "browse") {
+        // stay on browse, log is on logs tab
+      }
+    } else {
+      alert(`Push failed: ${r.data.error}`);
+    }
+  });
+
+  // ── Load ──────────────────────────────────────────────────────────────────────
+  async function loadIntegrations() {
+    const r = await apiFetch("/integrations");
+    if (!r.ok) return;
+    renderList(r.data);
+  }
+
+  loadIntegrations();
+
+  // Poll every 5s if a sync is running
+  setInterval(async () => {
+    const r = await apiFetch("/integrations");
+    if (!r.ok) return;
+    const hasSyncing = r.data.some(i => i.status === "syncing");
+    renderList(r.data);
+    if (hasSyncing && selectedId) await openDetail(selectedId);
+  }, 5000);
+</script>

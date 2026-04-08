@@ -1,0 +1,17 @@
+{
+  "name": "@openfs/grep-optimizer",
+  "version": "0.1.0",
+  "description": "Two-phase grep optimization for OpenFS adapters",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@openfs/core": "workspace:*"
+  },
+  "license": "Apache-2.0"
+}

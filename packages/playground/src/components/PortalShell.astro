@@ -1,0 +1,498 @@
+---
+interface Props {
+  title: string;
+  active?: string;
+  noPadding?: boolean;
+}
+const { title, active = 'chat', noPadding = false } = Astro.props;
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} — OpenFS Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Global portal constants — must load before any page scripts -->
+  <script is:inline>
+    const API = 'http://localhost:4322';
+    function getToken() { return localStorage.getItem('openfs_token'); }
+    function logout() {
+      localStorage.removeItem('openfs_token');
+      localStorage.removeItem('openfs_user');
+      window.location.href = '/portal/login';
+    }
+  </script>
+  <style is:global>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:        #1e3a5f;
+      --navy-dark:   #152c4a;
+      --navy-mid:    #2a4a72;
+      --navy-light:  #e8eef6;
+      --gold:        #b8862e;
+      --gold-light:  #fdf3e0;
+      --gold-hover:  #9a6f20;
+      --bg:          #f0ece5;
+      --surface:     #ffffff;
+      --surface2:    #f7f5f2;
+      --border:      #e4ddd4;
+      --border2:     #cdc5bb;
+      --text:        #1a1a1a;
+      --text2:       #383838;
+      --muted:       #7a7570;
+      --green:       #1a7a4a;
+      --green-light: #d4f0e1;
+      --red:         #b91c1c;
+      --red-light:   #fee2e2;
+      --amber:       #92620a;
+      --amber-light: #fef3c7;
+      --blue:        #1a4fa0;
+      --blue-light:  #dbeafe;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13.5px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-shell { height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Top bar ── */
+    .topbar {
+      height: 46px;
+      background: var(--navy-dark);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      padding: 0 1.1rem;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      color: rgba(255,255,255,0.9);
+    }
+    .topbar-logo {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .topbar-badge {
+      font-size: 0.58rem;
+      font-weight: 600;
+      background: var(--gold);
+      color: white;
+      padding: 0.12rem 0.4rem;
+      border-radius: 3px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .topbar-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.12); flex-shrink: 0; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.38rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.12s;
+      text-decoration: none;
+      font-family: var(--font);
+      white-space: nowrap;
+    }
+    .btn-ghost-dark {
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .btn-ghost-dark:hover { background: rgba(255,255,255,0.12); color: white; }
+    .btn-gold { background: var(--gold); color: white; }
+    .btn-gold:hover { background: var(--gold-hover); }
+    .btn-outline {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border2);
+    }
+    .btn-outline:hover { background: var(--surface2); }
+    .btn-navy { background: var(--navy); color: white; }
+    .btn-navy:hover { background: var(--navy-mid); }
+    .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.72rem; border-radius: 5px; }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-danger:hover { background: #991b1b; }
+
+    /* ── Body layout ── */
+    .app-body { flex: 1; display: flex; min-height: 0; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 210px;
+      background: var(--navy-dark);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .sidebar-profile {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      background: var(--gold);
+      color: white;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .profile-name { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.9); }
+    .profile-role { font-size: 0.68rem; color: rgba(255,255,255,0.35); margin-top: 0.05rem; }
+    .sidebar-nav { padding: 0.6rem 0.5rem; display: flex; flex-direction: column; flex: 1; }
+    .nav-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.65rem 0.6rem 0.25rem;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.42rem 0.6rem;
+      border-radius: 5px;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.81rem;
+      font-weight: 450;
+      text-decoration: none;
+      transition: all 0.1s;
+      cursor: pointer;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+    .nav-item.active { background: rgba(255,255,255,0.1); color: white; font-weight: 500; }
+    .nav-item svg { flex-shrink: 0; }
+    .sidebar-footer {
+      padding: 0.6rem 0.5rem;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* ── Main content ── */
+    .main-area { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+    .content { flex: 1; overflow-y: auto; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .card-head {
+      padding: 0.8rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-title { font-size: 0.84rem; font-weight: 600; color: var(--text); }
+    .card-head-right { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+
+    /* ── Stats ── */
+    .stats-grid { display: grid; gap: 0.875rem; margin-bottom: 1.5rem; }
+    .stats-3 { grid-template-columns: repeat(3, 1fr); }
+    .stats-4 { grid-template-columns: repeat(4, 1fr); }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 3px;
+      background: currentColor;
+      opacity: 0.5;
+      border-radius: 10px 0 0 10px;
+    }
+    .stat-val { font-size: 2rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+    .stat-lbl { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; font-weight: 500; }
+
+    /* ── Page headers ── */
+    .page-header { margin-bottom: 1.4rem; }
+    .page-title { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.025em; color: var(--text); }
+    .page-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── Tables ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .data-table th {
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .data-table td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); color: var(--text2); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--surface2); }
+    .data-table tr { transition: background 0.1s; }
+
+    /* ── Tags & badges ── */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.67rem;
+      font-weight: 600;
+      padding: 0.12rem 0.45rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
+    }
+    .tag-navy { background: var(--navy-light); color: var(--navy); }
+    .tag-gold { background: var(--gold-light); color: var(--gold); }
+    .tag-green { background: var(--green-light); color: var(--green); }
+    .tag-red { background: var(--red-light); color: var(--red); }
+    .tag-gray { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── Empty / spinner ── */
+    .empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      gap: 0.5rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Form elements ── */
+    input, select, textarea {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      padding: 0.45rem 0.75rem;
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--navy); }
+    label { font-size: 0.78rem; font-weight: 500; color: var(--text2); display: block; margin-bottom: 0.3rem; }
+
+    /* ── Utility ── */
+    .flex { display: flex; }
+    .gap-1 { gap: 0.5rem; }
+    .gap-2 { gap: 1rem; }
+    .ml-auto { margin-left: auto; }
+    .text-muted { color: var(--muted); }
+    .text-sm { font-size: 0.78rem; }
+    .fw-600 { font-weight: 600; }
+
+    /* ── Auth guard overlay ── */
+    #auth-guard {
+      position: fixed; inset: 0;
+      background: var(--navy-dark);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #auth-guard .guard-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      color: rgba(255,255,255,0.6);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Auth guard — hidden by JS once token verified -->
+  <div id="auth-guard">
+    <div class="guard-card">
+      <div class="spinner" style="margin: 0 auto 1rem; width:20px; height:20px; border-width:3px;"></div>
+      Verifying session…
+    </div>
+  </div>
+
+  <div class="app-shell" id="app-shell" style="display:none">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <a href="/portal/chat" class="topbar-logo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+        OpenFS
+        <span class="topbar-badge">Portal</span>
+      </a>
+      <div class="topbar-sep"></div>
+      <span style="font-size:0.8rem;color:rgba(255,255,255,0.5)" id="topbar-page">{title}</span>
+      <div class="topbar-right">
+        <span style="font-size:0.78rem;color:rgba(255,255,255,0.4)" id="topbar-user-name"></span>
+        <button class="btn btn-ghost-dark btn-sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="app-body">
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-profile">
+          <div class="avatar" id="sb-avatar">?</div>
+          <div>
+            <div class="profile-name" id="sb-name">Loading…</div>
+            <div class="profile-role" id="sb-role">Employee</div>
+          </div>
+        </div>
+
+        <div class="sidebar-nav">
+          <div class="nav-label">Workspace</div>
+          <a href="/portal/chat" class={`nav-item ${active==='chat'?'active':''}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Ask AI
+          </a>
+          <a href="/portal/documents" class={`nav-item ${active==='documents'?'active':''}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Documents
+          </a>
+          <a href="/portal/collections" class={`nav-item ${active==='collections'?'active':''}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+            </svg>
+            Collections
+          </a>
+
+          <div class="nav-label" style="margin-top:0.5rem">Admin</div>
+          <a href="/portal/users" class={`nav-item ${active==='users'?'active':''}`} id="nav-users" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Users
+          </a>
+          <a href="/" class="nav-item" id="nav-admin" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            </svg>
+            Admin Panel
+          </a>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="nav-item" onclick="logout()" style="cursor:pointer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign Out
+          </div>
+        </div>
+      </div>
+
+      <!-- Page content -->
+      <div class="main-area">
+        <div class="content" style={noPadding ? "padding:0;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0" : "padding:1.5rem 1.75rem"}>
+          <slot />
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script is:inline>
+    async function initAuth() {
+      const token = getToken();
+      if (!token) { window.location.href = '/portal/login'; return; }
+
+      try {
+        const res = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) { logout(); return; }
+        const user = await res.json();
+
+        // Populate UI
+        document.getElementById('sb-name').textContent = user.name || user.username;
+        document.getElementById('sb-role').textContent = user.role === 'admin' ? 'Administrator' : 'Employee';
+        document.getElementById('sb-avatar').textContent = (user.name || user.username).slice(0, 2).toUpperCase();
+        document.getElementById('topbar-user-name').textContent = user.name || user.username;
+
+        // Show admin links
+        if (user.role === 'admin') {
+          document.getElementById('nav-users').style.display = 'flex';
+          document.getElementById('nav-admin').style.display = 'flex';
+        }
+
+        // Store for child pages
+        localStorage.setItem('openfs_user', JSON.stringify(user));
+
+        // Show app
+        document.getElementById('auth-guard').style.display = 'none';
+        document.getElementById('app-shell').style.display = 'flex';
+        document.getElementById('app-shell').style.flexDirection = 'column';
+
+      } catch {
+        logout();
+      }
+    }
+
+    initAuth();
+  </script>
+</body>
+</html>

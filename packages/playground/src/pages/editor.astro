@@ -1,0 +1,506 @@
+---
+import AppShell from '../components/AppShell.astro';
+---
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css" />
+<AppShell title="Editor" active="editor">
+  <!-- Topbar actions -->
+  <span slot="topbar-actions" class="status-pill">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">ready</span>
+  </span>
+  <button slot="topbar-actions" class="btn btn-ghost-dark btn-sm" onclick="saveToOpenFS()">Save</button>
+  <button slot="topbar-actions" class="btn btn-gold btn-sm" onclick="saveAndSync()">Save + Sync to Wiki</button>
+
+  <div class="editor-shell">
+
+    <!-- ── Left: Pages sidebar ── -->
+    <div class="pages-sidebar">
+      <div class="pages-header">
+        <span class="pages-label">Pages</span>
+        <button class="btn btn-navy btn-sm" onclick="newPage()">+ New</button>
+      </div>
+      <div class="pages-search-wrap">
+        <input id="pages-filter" class="pages-search" placeholder="Search pages..." oninput="filterPages(this.value)" />
+      </div>
+      <div class="page-list" id="page-list">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+
+    <!-- ── Center: Editor ── -->
+    <div class="editor-area">
+      <div class="title-bar">
+        <input
+          id="page-title"
+          class="title-input"
+          placeholder="Page title..."
+          list="page-titles-list"
+          autocomplete="off"
+          oninput="onTitleInput(this.value)"
+          onchange="onTitleChange(this.value)"
+        />
+        <datalist id="page-titles-list"></datalist>
+      </div>
+      <div class="editor-body">
+        <textarea id="editor"></textarea>
+      </div>
+    </div>
+
+    <!-- ── Right: Ingest panel ── -->
+    <div class="ingest-panel">
+      <div class="ingest-section">
+        <div class="ingest-section-title">Ingest URL</div>
+        <div class="ingest-body">
+          <div class="form-field">
+            <label class="form-label">URL to fetch &amp; synthesize</label>
+            <input id="ingest-url" class="form-input" placeholder="https://..." type="url" />
+          </div>
+          <button class="btn btn-navy" style="width:100%" onclick="ingestUrl()">Fetch &amp; Ingest</button>
+          <div class="form-result" id="ingest-result"></div>
+        </div>
+      </div>
+
+      <div class="ingest-divider"></div>
+
+      <div class="ingest-section">
+        <div class="ingest-section-title">Ingest Text</div>
+        <div class="ingest-body">
+          <div class="form-field">
+            <label class="form-label">Title</label>
+            <input id="ingest-title" class="form-input" placeholder="Document title..." />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Content</label>
+            <textarea id="ingest-content" class="form-textarea" placeholder="Paste content to ingest..."></textarea>
+          </div>
+          <button class="btn btn-navy" style="width:100%" onclick="ingestText()">Ingest Text</button>
+          <div class="form-result" id="ingest-text-result"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</AppShell>
+
+<style>
+  /* ── Override EasyMDE to match design system ── */
+  .EasyMDEContainer .editor-toolbar { background: var(--surface) !important; border-bottom: 1px solid var(--border) !important; border-top: none !important; border-left: none !important; border-right: none !important; padding: 0.3rem 0.5rem !important; flex-shrink: 0; }
+  .EasyMDEContainer .editor-toolbar button { color: var(--muted) !important; border: none !important; background: transparent !important; border-radius: 5px !important; }
+  .EasyMDEContainer .editor-toolbar button:hover, .EasyMDEContainer .editor-toolbar button.active { background: var(--navy-light) !important; color: var(--navy) !important; }
+  .EasyMDEContainer .editor-toolbar i.separator { border-color: var(--border) !important; }
+  .EasyMDEContainer {
+    display: flex !important;
+    flex-direction: column !important;
+    border: none !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  .EasyMDEContainer .editor-toolbar { flex-shrink: 0 !important; }
+  .EasyMDEContainer .CodeMirror {
+    font-family: var(--mono) !important;
+    font-size: 0.85rem !important;
+    line-height: 1.7 !important;
+    background: var(--bg) !important;
+    color: var(--text) !important;
+    border: none !important;
+    padding: 0 !important;
+    /* height is set explicitly by JS fitEditor() — CSS can't reliably do this */
+  }
+  .EasyMDEContainer .CodeMirror-scroll {
+    padding: 1rem 1.25rem !important;
+    box-sizing: border-box !important;
+  }
+  .editor-preview { background: var(--surface) !important; padding: 1.25rem 1.5rem !important; font-family: var(--font) !important; font-size: 0.88rem !important; line-height: 1.7 !important; color: var(--text) !important; }
+  .editor-preview h1, .editor-preview h2, .editor-preview h3 { color: var(--navy) !important; margin: 1.2rem 0 0.5rem !important; }
+  .editor-preview code { background: var(--surface2) !important; padding: 0.1rem 0.3rem !important; border-radius: 3px !important; font-family: var(--mono) !important; font-size: 0.85em !important; }
+  .editor-preview pre { background: var(--navy-dark) !important; color: #e8eef6 !important; padding: 1rem !important; border-radius: 7px !important; }
+  .editor-preview blockquote { border-left: 3px solid var(--gold) !important; padding-left: 1rem !important; color: var(--muted) !important; }
+  .editor-statusbar { display: none !important; }
+
+  /* ── Shell layout ── */
+  .editor-shell {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* ── Pages sidebar ── */
+  .pages-sidebar {
+    width: 200px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .pages-header {
+    padding: 0.6rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--surface2);
+  }
+  .pages-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    flex: 1;
+  }
+  .pages-search-wrap {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .pages-search {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.28rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text);
+    outline: none;
+    font-family: var(--font);
+  }
+  .pages-search:focus { border-color: var(--navy); }
+  .pages-search::placeholder { color: var(--border2); }
+  .page-list { flex: 1; overflow-y: auto; padding: 0.3rem; }
+  .page-item {
+    padding: 0.42rem 0.6rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.1s;
+    line-height: 1.3;
+  }
+  .page-item:hover { background: var(--surface2); color: var(--text); }
+  .page-item.active { background: var(--navy-light); color: var(--navy); font-weight: 500; }
+  .page-dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .page-item.active .page-dot { opacity: 1; }
+
+  /* ── Editor area ── */
+  .editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+  }
+  .title-bar {
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 0.5rem;
+  }
+  .title-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    font-family: var(--font);
+    letter-spacing: -0.01em;
+  }
+  .title-input::placeholder { color: var(--border2); font-weight: 400; }
+  .editor-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Ingest panel ── */
+  .ingest-panel {
+    width: 260px;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .ingest-section { padding: 0; }
+  .ingest-section-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.8rem 1rem 0;
+  }
+  .ingest-body {
+    padding: 0.5rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .ingest-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+  }
+</style>
+
+<script is:inline src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+<script is:inline>
+  const API = location.protocol === 'https:' ? 'https://api.openfs.derekethandavis.com' : 'http://localhost:4322';
+  let currentPath = null;
+  let allPages = [];
+  let easyMDE = null;
+  let autoSaveTimer = null;
+  let suppressChange = false; // true during programmatic setValue — blocks auto-save
+
+  // ── Status ──
+  function setStatus(msg, type) {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    text.textContent = msg;
+    dot.className = 'status-dot' + (type === 'saved' ? ' live' : type === 'error' ? ' error' : '');
+  }
+
+  async function apiFetch(path, body) {
+    const opts = body
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : {};
+    const r = await fetch(API + path, opts);
+    return r.json();
+  }
+
+  // ── Pages list ──
+  async function loadPages() {
+    const pages = await apiFetch('/pages');
+    allPages = pages || [];
+    renderPageList(allPages);
+    // Populate datalist for title autocomplete
+    const dl = document.getElementById('page-titles-list');
+    dl.innerHTML = allPages.map(p => `<option value="${p.title}" data-path="${p.path}">`).join('');
+  }
+
+  function renderPageList(pages) {
+    const list = document.getElementById('page-list');
+    list.innerHTML = '';
+    if (!pages.length) { list.innerHTML = '<div class="empty">No pages</div>'; return; }
+    for (const p of pages) {
+      const item = document.createElement('div');
+      item.className = 'page-item' + (p.path === currentPath ? ' active' : '');
+      item.dataset.path = p.path;
+      item.dataset.title = p.title;
+      item.innerHTML = `<span class="page-dot"></span>${p.title}`;
+      item.onclick = () => loadPage(p.path, p.title, item);
+      list.appendChild(item);
+    }
+  }
+
+  function filterPages(q) {
+    if (!q) { renderPageList(allPages); return; }
+    const lower = q.toLowerCase();
+    renderPageList(allPages.filter(p => p.title.toLowerCase().includes(lower)));
+  }
+
+  // ── Load page ──
+  async function loadPage(path, title, el) {
+    currentPath = path;
+    document.getElementById('page-title').value = title;
+    document.querySelectorAll('.page-item').forEach(i => i.classList.remove('active'));
+    if (el) el.classList.add('active');
+    setStatus('loading…', '');
+    try {
+      const d = await apiFetch('/cat?path=' + encodeURIComponent(path));
+      const content = d.content ?? '';
+      // Use low-level CodeMirror API — more reliable than easyMDE.value()
+      suppressChange = true;
+      easyMDE.codemirror.setValue(content);
+      easyMDE.codemirror.clearHistory();
+      fitEditor();
+      setStatus('loaded', 'saved');
+      setTimeout(() => { suppressChange = false; }, 0);
+    } catch (e) {
+      setStatus('error', 'error');
+    }
+  }
+
+  // ── Title autocomplete: when user selects a known page ──
+  function onTitleInput(val) {
+    // Schedule autosave reset
+    setStatus('unsaved', '');
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      if (document.getElementById('page-title').value.trim()) saveToOpenFS();
+    }, 3000);
+  }
+
+  function onTitleChange(val) {
+    // If the typed title matches a known page, load it
+    const match = allPages.find(p => p.title.toLowerCase() === val.toLowerCase());
+    if (match && match.path !== currentPath) {
+      const el = document.querySelector(`.page-item[data-path="${match.path}"]`);
+      loadPage(match.path, match.title, el);
+    }
+  }
+
+  function newPage() {
+    currentPath = null;
+    document.getElementById('page-title').value = '';
+    suppressChange = true;
+    easyMDE.codemirror.setValue('');
+    easyMDE.codemirror.clearHistory();
+    setTimeout(() => { suppressChange = false; }, 0);
+    document.querySelectorAll('.page-item').forEach(i => i.classList.remove('active'));
+    setStatus('new page', '');
+    document.getElementById('page-title').focus();
+  }
+
+  // ── Save ──
+  async function saveToOpenFS() {
+    const title = document.getElementById('page-title').value.trim();
+    const content = easyMDE.value();
+    if (!title) { setStatus('need title', 'error'); return; }
+    setStatus('saving…', '');
+    try {
+      const d = await apiFetch('/ingest', { title, content });
+      currentPath = d.pagesCreated?.[0] ?? d.pagesUpdated?.[0] ?? currentPath;
+      setStatus('saved', 'saved');
+      loadPages();
+    } catch { setStatus('error', 'error'); }
+  }
+
+  async function saveAndSync() {
+    const title = document.getElementById('page-title').value.trim();
+    const content = easyMDE.value();
+    if (!title) { setStatus('need title', 'error'); return; }
+    setStatus('syncing…', '');
+    try {
+      const d = await apiFetch('/ingest', { title, content });
+      const path = d.pagesCreated?.[0] ?? d.pagesUpdated?.[0];
+      if (path) await apiFetch('/push-page', { path });
+      setStatus('synced', 'saved');
+      loadPages();
+    } catch { setStatus('error', 'error'); }
+  }
+
+  // ── Ingest URL ──
+  async function ingestUrl() {
+    const url = document.getElementById('ingest-url').value.trim();
+    if (!url) return;
+    const result = document.getElementById('ingest-result');
+    result.className = 'form-result';
+    result.style.display = 'block';
+    result.textContent = 'Fetching…';
+    // Helper: strip HTML to plain text
+    function htmlToText(html) {
+      return html
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ').trim().slice(0, 8000);
+    }
+
+    function titleFromUrl(u) {
+      return new URL(u).pathname.split('/').filter(Boolean).pop()
+        ?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ?? 'Web Page';
+    }
+
+    // Server-side fetch (no CORS issues)
+    try {
+      const d = await apiFetch('/ingest-url', { url });
+      if (d.error) throw new Error(d.error);
+      result.className = 'form-result ok';
+      result.textContent = `Done — ${d.pagesCreated?.length ?? 0} created, ${d.pagesUpdated?.length ?? 0} updated`;
+      loadPages();
+    } catch (e) {
+      result.className = 'form-result err';
+      result.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // ── Ingest text ──
+  async function ingestText() {
+    const title = document.getElementById('ingest-title').value.trim();
+    const content = document.getElementById('ingest-content').value.trim();
+    const result = document.getElementById('ingest-text-result');
+    if (!title || !content) {
+      result.className = 'form-result err';
+      result.textContent = 'Need title and content';
+      return;
+    }
+    result.style.display = 'block';
+    result.textContent = 'Ingesting…';
+    try {
+      const d = await apiFetch('/ingest', { title, content });
+      result.className = 'form-result ok';
+      result.textContent = `Done — ${d.pagesCreated?.length ?? 0} created`;
+      loadPages();
+    } catch (e) {
+      result.className = 'form-result err';
+      result.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // ── Fit CodeMirror to its container — JS is the only reliable way ──
+  function fitEditor() {
+    if (!easyMDE) return;
+    const body = document.querySelector('.editor-body');
+    const mdeToolbar = document.querySelector('.EasyMDEContainer .editor-toolbar');
+    if (!body) return;
+    const h = body.clientHeight - (mdeToolbar ? mdeToolbar.clientHeight : 0);
+    if (h > 80) easyMDE.codemirror.setSize(null, h + 'px');
+  }
+
+  // ── Init EasyMDE ──
+  window.addEventListener('DOMContentLoaded', () => {
+    easyMDE = new EasyMDE({
+      element: document.getElementById('editor'),
+      autofocus: false,
+      spellChecker: false,
+      status: false,
+      placeholder: 'Write in Markdown…',
+      toolbar: [
+        'bold', 'italic', 'heading', '|',
+        'code', 'quote', 'unordered-list', 'ordered-list', '|',
+        'link', '|',
+        'preview', 'side-by-side', 'fullscreen',
+      ],
+      renderingConfig: { singleLineBreaks: false },
+    });
+
+    // Set height immediately then on every resize
+    fitEditor();
+    window.addEventListener('resize', fitEditor);
+
+    // Auto-save on change — skip if change was triggered programmatically
+    easyMDE.codemirror.on('change', () => {
+      if (suppressChange) return;
+      setStatus('unsaved', '');
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        if (document.getElementById('page-title').value.trim()) saveToOpenFS();
+      }, 3000);
+    });
+
+    loadPages();
+  });
+</script>

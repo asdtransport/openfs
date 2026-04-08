@@ -1,0 +1,16 @@
+{
+  "name": "@openfs/adapter-s3",
+  "version": "0.1.0",
+  "description": "S3/MinIO adapter for OpenFS — stores files as S3 objects with text search via $contains",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0"
+  },
+  "peerDependencies": { "@openfs/core": "workspace:*" },
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@openfs/agent-knowledge",
+  "version": "0.1.0",
+  "description": "Large-scale knowledge graph pipeline for OpenFS — S3 bulk ingest, real vector embeddings via Chroma, entity extraction, topic expansion",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@chroma-core/openai": "^0.1.10",
+    "@llamaindex/liteparse": "^1.4.6",
+    "@openfs/adapter-chroma": "workspace:*",
+    "@openfs/adapter-s3": "workspace:*",
+    "@openfs/core": "workspace:*",
+    "chromadb": "^3.4.0",
+    "mammoth": "^1.12.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,154 @@
+{
+  "About Me": {
+    "openfsPath": "/wiki/index.md",
+    "synthesizedAt": "2026-04-05T17:07:22.865Z"
+  },
+  "Agent Frameworks": {
+    "openfsPath": "/wiki/agent-frameworks.md",
+    "synthesizedAt": "2026-04-05T17:07:35.334Z"
+  },
+  "Ai Integration": {
+    "openfsPath": "/wiki/ai-integration.md",
+    "synthesizedAt": "2026-04-05T17:07:49.794Z"
+  },
+  "Api Architecture": {
+    "openfsPath": "/wiki/api-architecture.md",
+    "synthesizedAt": "2026-04-05T17:08:05.462Z"
+  },
+  "Autogen": {
+    "openfsPath": "/wiki/autogen.md",
+    "synthesizedAt": "2026-04-05T17:08:13.800Z"
+  },
+  "Database Architecture": {
+    "openfsPath": "/wiki/database-architecture.md",
+    "synthesizedAt": "2026-04-05T17:08:30.428Z"
+  },
+  "ITCommandCenter": {
+    "openfsPath": "/wiki/it-command-center.md",
+    "synthesizedAt": "2026-04-05T17:09:27.914Z"
+  },
+  "Index": {
+    "openfsPath": "/wiki/index.md",
+    "synthesizedAt": "2026-04-05T17:09:38.333Z"
+  },
+  "It Command Center": {
+    "openfsPath": "/wiki/it-command-center.md",
+    "synthesizedAt": "2026-04-05T17:10:12.878Z"
+  },
+  "Knowledge Hub Portfolio": {
+    "openfsPath": "/wiki/knowledge-organization.md",
+    "synthesizedAt": "2026-04-05T17:10:29.026Z"
+  },
+  "Knowledge Organization": {
+    "openfsPath": "/wiki/knowledge-organization.md",
+    "synthesizedAt": "2026-04-05T17:10:48.805Z"
+  },
+  "Log": {
+    "openfsPath": "/wiki/log.md",
+    "synthesizedAt": "2026-04-05T17:10:56.467Z"
+  },
+  "Main Page": {
+    "openfsPath": "/wiki/index.md",
+    "synthesizedAt": "2026-04-05T17:11:08.817Z"
+  },
+  "Me": {
+    "openfsPath": "/wiki/self-understanding.md",
+    "synthesizedAt": "2026-04-05T17:11:19.207Z"
+  },
+  "MicrosoftAgentFramework": {
+    "openfsPath": "/wiki/agent-frameworks.md",
+    "synthesizedAt": "2026-04-05T17:11:40.703Z"
+  },
+  "Microsoft Agent Framework": {
+    "openfsPath": "/wiki/microsoft-agent-framework.md",
+    "synthesizedAt": "2026-04-05T17:11:57.134Z"
+  },
+  "OpenFS Terminal": {
+    "openfsPath": "/wiki/openfs-terminal.md",
+    "synthesizedAt": "2026-04-05T17:12:19.737Z"
+  },
+  "Performance Evaluation": {
+    "openfsPath": "/wiki/performance-evaluation-framework.md",
+    "synthesizedAt": "2026-04-05T17:12:37.002Z"
+  },
+  "Semantic Kernel": {
+    "openfsPath": "/wiki/semantic-kernel.md",
+    "synthesizedAt": "2026-04-05T17:12:51.266Z"
+  },
+  "Team Members": {
+    "openfsPath": "/wiki/people.md",
+    "synthesizedAt": "2026-04-05T17:13:10.697Z"
+  },
+  "Tempate": {
+    "openfsPath": "/wiki/knowledge-hub-template.md",
+    "synthesizedAt": "2026-04-05T17:13:27.972Z"
+  },
+  "Web Interface": {
+    "openfsPath": "/wiki/web-interface.md",
+    "synthesizedAt": "2026-04-05T17:13:37.137Z"
+  },
+  "Wiki Templates": {
+    "openfsPath": "/wiki/wiki-templates.md",
+    "synthesizedAt": "2026-04-05T17:14:04.347Z"
+  },
+  "Wikitemplate": {
+    "openfsPath": "/wiki/wiki-templates.md",
+    "synthesizedAt": "2026-04-05T17:14:24.382Z"
+  },
+  "OpenFS Adapters": {
+    "openfsPath": "/wiki/openfs-adapters.md",
+    "synthesizedAt": "2026-04-05T18:03:35.001Z"
+  },
+  "OpenFS Architecture": {
+    "openfsPath": "/wiki/openfs-architecture.md",
+    "synthesizedAt": "2026-04-05T18:03:48.489Z"
+  },
+  "OpenFS Playground": {
+    "openfsPath": "/wiki/openfs-playground.md",
+    "synthesizedAt": "2026-04-05T18:03:58.391Z"
+  },
+  "OpenFS Server": {
+    "openfsPath": "/wiki/openfs-server.md",
+    "synthesizedAt": "2026-04-05T18:04:16.124Z"
+  },
+  "OpenFS Enterprise Plan": {
+    "openfsPath": "/wiki/openfs-enterprise-platform.md",
+    "synthesizedAt": "2026-04-05T18:45:27.607Z"
+  },
+  "OpenFS Roadmap": {
+    "openfsPath": "/wiki/openfs-roadmap.md",
+    "synthesizedAt": "2026-04-05T18:45:51.751Z"
+  },
+  "Arizona Wildcats Basketball": {
+    "openfsPath": "/wiki/arizona-wildcats-basketball.md",
+    "synthesizedAt": "2026-04-05T22:00:30.868Z"
+  },
+  "Michigan Wolverines Basketball": {
+    "openfsPath": "/wiki/michigan-wolverines-basketball.md",
+    "synthesizedAt": "2026-04-05T22:00:35.608Z"
+  },
+  "Ncaa Final Four 2026": {
+    "openfsPath": "/wiki/ncaa-final-four-2026.md",
+    "synthesizedAt": "2026-04-05T22:00:55.468Z"
+  },
+  "Obsidian Markdown Links": {
+    "openfsPath": "/wiki/obsidian-markdown-links.md",
+    "synthesizedAt": "2026-04-05T22:01:22.297Z"
+  },
+  "Openfs Agent Wiki": {
+    "openfsPath": "/wiki/openfs-llm-synthesis-pipeline.md",
+    "synthesizedAt": "2026-04-05T22:01:44.889Z"
+  },
+  "Openfs Bot Telegram": {
+    "openfsPath": "/wiki/openfs-bot-telegram.md",
+    "synthesizedAt": "2026-04-05T22:02:10.070Z"
+  },
+  "Openfs Cli": {
+    "openfsPath": "/wiki/openfs-cli.md",
+    "synthesizedAt": "2026-04-05T22:02:31.115Z"
+  },
+  "Palo Alto Networks": {
+    "openfsPath": "/wiki/palo-alto-networks.md",
+    "synthesizedAt": "2026-04-05T22:02:51.448Z"
+  }
+}
