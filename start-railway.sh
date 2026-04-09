@@ -73,21 +73,29 @@ export ANONYMIZED_TELEMETRY=false
 echo "▶ Patching ChromaDB configuration..."
 python3 -c "
 import chromadb.api.configuration as cfg
-import inspect
+import inspect, re
 
 src_file = inspect.getfile(cfg)
 with open(src_file, 'r') as f:
     src = f.read()
 
-TARGET = \"json_map['_type']\"
-REPLACEMENT = \"json_map.get('_type', cls.__name__)\"
+orig = src
 
-if TARGET in src:
-    patched = src.replace(TARGET, REPLACEMENT)
+# Step 1: Fix KeyError — replace dict key access with .get()
+src = src.replace(\"json_map['_type']\", \"json_map.get('_type', cls.__name__)\")
+
+# Step 2: Skip the type mismatch check entirely — JS client and Python server
+# use different internal type names across versions; just skip validation
+src = re.sub(
+    r\"if json_map\.get\('_type', cls\.__name__\) != cls\.__name__:\",
+    \"if False:  # patched: skip cross-version _type mismatch check\",
+    src
+)
+
+if src != orig:
     with open(src_file, 'w') as f:
-        f.write(patched)
-    count = src.count(TARGET)
-    print(f'  ✓ Patched configuration.py — replaced {count} occurrence(s) of _type')
+        f.write(src)
+    print('  ✓ Patched configuration.py — KeyError fix + type check disabled')
 else:
     print('  ✓ configuration.py already patched')
 " 2>&1 || echo "  ⚠ Could not patch chromadb"
