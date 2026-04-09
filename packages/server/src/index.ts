@@ -424,7 +424,51 @@ if (STATIC_DIR && existsSync(STATIC_DIR)) {
 const port = parseInt(process.env.PORT || "3456", 10);
 console.log(`🗂️  OpenFS server running on http://localhost:${port}`);
 
+// ── Bun WebSocket proxy for MinIO console (/minio/ws/*) ──────────────────────
+// Hono's HTTP proxy can't upgrade connections — handle upgrades here before
+// passing to app.fetch so the MinIO object browser works.
+const MINIO_CONSOLE_WS = (process.env.MINIO_CONSOLE_URL || "http://localhost:9001")
+  .replace(/^http/, "ws");
+
 export default {
   port,
-  fetch: app.fetch,
+  async fetch(req: Request, server: any) {
+    const url = new URL(req.url);
+
+    // WebSocket upgrade for MinIO console
+    if (req.headers.get("upgrade")?.toLowerCase() === "websocket" && url.pathname.startsWith("/minio/")) {
+      const wsPath = url.pathname.replace(/^\/minio/, "") || "/";
+      const upstreamUrl = `${MINIO_CONSOLE_WS}${wsPath}${url.search}`;
+      const upgraded = server.upgrade(req, { data: { upstreamUrl, upstream: null as WebSocket | null } });
+      if (upgraded) return;
+    }
+
+    return app.fetch(req);
+  },
+  websocket: {
+    open(ws: any) {
+      const { upstreamUrl } = ws.data;
+      try {
+        const upstream = new WebSocket(upstreamUrl);
+        ws.data.upstream = upstream;
+        upstream.onopen = () => {};
+        upstream.onmessage = (e: MessageEvent) => {
+          try { ws.send(e.data); } catch {}
+        };
+        upstream.onclose = () => { try { ws.close(); } catch {} };
+        upstream.onerror = () => { try { ws.close(); } catch {} };
+      } catch (e) {
+        ws.close();
+      }
+    },
+    message(ws: any, message: string | Buffer) {
+      const upstream = ws.data.upstream as WebSocket | null;
+      if (upstream?.readyState === WebSocket.OPEN) {
+        try { upstream.send(message); } catch {}
+      }
+    },
+    close(ws: any) {
+      try { ws.data.upstream?.close(); } catch {}
+    },
+  },
 };
