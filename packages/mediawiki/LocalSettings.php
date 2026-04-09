@@ -203,5 +203,11 @@ if ( getenv('MW_SQLITE_DATA_DIR') ) {
     $wgSQLiteDataDir = getenv('MW_SQLITE_DATA_DIR');
 }
 
+# ── Bot / migration rate limits ───────────────────────────────────────────────
+# Allow bots to edit freely (needed for bulk migration from local wiki)
+$wgRateLimits['edit']['user']    = [ 1000, 60 ]; // 1000 edits per minute
+$wgRateLimits['edit']['newbie']  = [ 1000, 60 ];
+$wgRateLimits['edit']['ip']      = [ 1000, 60 ];
+
 # End of automatically generated settings.
 

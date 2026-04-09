@@ -850,10 +850,17 @@ Bun.serve({
             await remote.editPage(title, page.content, summary);
             log(`[migrate] pushed: ${title}`);
             pushed++;
+            // Small delay to avoid rate limiting on the remote MW
+            await new Promise(r => setTimeout(r, 300));
           } catch (e: any) {
             log(`[migrate] failed: ${title} — ${e.message}`);
             errors.push(`${title}: ${e.message}`);
             failed++;
+            // Back off longer on rate limit errors
+            if ((e.message ?? "").includes("ratelimited")) {
+              log(`[migrate] rate limited — waiting 5s`);
+              await new Promise(r => setTimeout(r, 5000));
+            }
           }
         }
         return json({ ok: true, total: titles.length, pushed, failed, errors });
