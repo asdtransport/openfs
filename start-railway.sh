@@ -163,7 +163,13 @@ else
   export MW_SCRIPT_PATH="${MW_SCRIPT_PATH:-}"
 fi
 # MW_PUBLIC_URL = browser-accessible wiki base URL (used by agent-wiki-mw for article links)
-export MW_PUBLIC_URL="${MW_PUBLIC_URL:-${MW_SERVER}${MW_SCRIPT_PATH}}"
+# Always derive from RAILWAY_PUBLIC_DOMAIN so links use the app URL, not MW_SERVER
+# (MW_SERVER may be a separate custom domain for MediaWiki itself)
+if [ -n "$RAILWAY_PUBLIC_DOMAIN" ]; then
+  export MW_PUBLIC_URL="${MW_PUBLIC_URL:-https://${RAILWAY_PUBLIC_DOMAIN}/mw}"
+else
+  export MW_PUBLIC_URL="${MW_PUBLIC_URL:-http://localhost:4321/mw}"
+fi
 
 # Point MediaWiki SQLite data to persistent volume
 export MW_SQLITE_DATA_DIR="/data/mediawiki"
