@@ -66,28 +66,30 @@ echo "  ✓ Bucket ready"
 # ── 2. Start ChromaDB ───────────────────────────────────────
 export ANONYMIZED_TELEMETRY=false
 
-# Patch chromadb 0.6.3 to handle missing _type in collection configuration
+# Patch chromadb to handle missing _type in collection configuration
 # (JS client chromadb@3.x sends getOrCreateCollection without _type field)
+# Replaces ALL occurrences of json_map['_type'] — including the one inside
+# the error message f-string on line 209 which also throws KeyError.
 echo "▶ Patching ChromaDB configuration..."
 python3 -c "
 import chromadb.api.configuration as cfg
-import inspect, re
+import inspect
 
 src_file = inspect.getfile(cfg)
 with open(src_file, 'r') as f:
     src = f.read()
 
-# Replace the line that crashes on missing _type with a safe default
-if \"json_map['_type']\" in src and 'json_map.get' not in src:
-    src = src.replace(
-        \"json_map['_type']\",
-        \"json_map.get('_type', cls.__name__)\"
-    )
+TARGET = \"json_map['_type']\"
+REPLACEMENT = \"json_map.get('_type', cls.__name__)\"
+
+if TARGET in src:
+    patched = src.replace(TARGET, REPLACEMENT)
     with open(src_file, 'w') as f:
-        f.write(src)
-    print('  ✓ Patched configuration.py (_type default)')
+        f.write(patched)
+    count = src.count(TARGET)
+    print(f'  ✓ Patched configuration.py — replaced {count} occurrence(s) of _type')
 else:
-    print('  ✓ configuration.py already patched or not needed')
+    print('  ✓ configuration.py already patched')
 " 2>&1 || echo "  ⚠ Could not patch chromadb"
 
 # Pre-create collections via PersistentClient
