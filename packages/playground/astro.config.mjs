@@ -29,6 +29,10 @@ export default defineConfig({
       proxy: {
         "/api": API_URL,
         "/health": API_URL,
+        "/sync": {
+          target: process.env.SYNC_URL || "http://localhost:4322",
+          rewrite: (path) => path.replace(/^\/sync/, ""),
+        },
       },
       allowedHosts: ["openfs.derekethandavis.com", ".derekethandavis.com"],
     },
