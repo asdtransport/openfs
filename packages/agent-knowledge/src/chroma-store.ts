@@ -36,11 +36,21 @@ export class ChromaStore {
   }
 
   async init(): Promise<void> {
-    this.collection = await this.client.getOrCreateCollection({
-      name: this.collectionName,
-      embeddingFunction: this.embedFn,
-      metadata: { "hnsw:space": "cosine" },
-    });
+    // Try getCollection first (GET request) to avoid triggering getOrCreateCollection
+    // POST which causes _type KeyError on ChromaDB 0.6+ with JS client 3.x.
+    // Fall back to getOrCreateCollection only if the collection doesn't exist yet.
+    try {
+      this.collection = await this.client.getCollection({
+        name: this.collectionName,
+        embeddingFunction: this.embedFn,
+      });
+    } catch {
+      this.collection = await this.client.getOrCreateCollection({
+        name: this.collectionName,
+        embeddingFunction: this.embedFn,
+        metadata: { "hnsw:space": "cosine" },
+      });
+    }
   }
 
   async upsertChunks(chunks: Chunk[]): Promise<void> {
