@@ -314,6 +314,38 @@ app.all("/minio/*", async (c) => {
   }
 });
 
+// ── MinIO Console internal API proxy (/api/v1/* → MinIO console :9001) ──────
+// The MinIO SPA makes XHR calls to /api/v1/* using absolute paths. Since the
+// SPA is served through /minio/, these calls land here rather than at /minio/api/v1/*.
+app.all("/api/v1/*", async (c) => {
+  const url = new URL(c.req.url);
+  const targetUrl = `${MINIO_CONSOLE}${url.pathname}${url.search}`;
+  try {
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(c.req.header())) {
+      const k = key.toLowerCase();
+      if (k !== "host" && k !== "content-length" && k !== "transfer-encoding" && value) {
+        headers.set(key, value);
+      }
+    }
+    const fetchOpts: RequestInit = { method: c.req.method, headers };
+    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+      fetchOpts.body = await c.req.raw.arrayBuffer();
+    }
+    const upstream = await fetch(targetUrl, fetchOpts);
+    const responseHeaders = new Headers();
+    upstream.headers.forEach((value, key) => {
+      const k = key.toLowerCase();
+      if (k !== "transfer-encoding" && k !== "content-encoding" && k !== "content-length") {
+        responseHeaders.set(key, value);
+      }
+    });
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (err: any) {
+    return c.json({ error: "MinIO Console API unavailable", detail: err.message }, 503);
+  }
+});
+
 // ── MediaWiki reverse proxy ───────────────────────────────────────────────────
 const MW_INTERNAL = process.env.MW_URL || "http://localhost:8082";
 
