@@ -1971,15 +1971,42 @@ Never answer from memory alone. Cite sources by path.`,
     // ── Auth endpoints (/auth/*) ─────────────────────────────────────────────
 
     // POST /auth/login
+    // Try local user store first, then fall back to MediaWiki credentials.
     if (url.pathname === "/auth/login" && req.method === "POST") {
       try {
         if (!usersStore) return json({ error: "not ready" }, 503);
         const { username, password } = await req.json() as any;
         if (!username || !password) return json({ error: "username and password required" }, 400);
-        const user = await usersStore.verify(username, password);
-        if (!user) return json({ error: "invalid credentials" }, 401);
-        const token = await signJwt({ sub: user.id, username: user.username, name: user.name, role: user.role });
-        return json({ token, user });
+
+        // 1. Try local user store
+        const localUser = await usersStore.verify(username, password);
+        if (localUser) {
+          const token = await signJwt({ sub: localUser.id, username: localUser.username, name: localUser.name, role: localUser.role });
+          return json({ token, user: localUser });
+        }
+
+        // 2. Fall back to MediaWiki credentials
+        if (MW_URL) {
+          try {
+            const mwBot = new MwBot({ baseUrl: MW_URL, username, password: password });
+            await mwBot.login();
+            // Auto-provision a local user record for this MW user (role: viewer)
+            const mwRole = username.toLowerCase() === (MW_USER ?? "admin").toLowerCase() ? "admin" : "viewer";
+            try { await usersStore.create(username, username, mwRole, password); } catch {}
+            const provisioned = await usersStore.verify(username, password);
+            if (provisioned) {
+              const token = await signJwt({ sub: provisioned.id, username: provisioned.username, name: provisioned.name, role: provisioned.role });
+              return json({ token, user: provisioned });
+            }
+            // If provisioning failed just issue a token directly
+            const token = await signJwt({ sub: username, username, name: username, role: mwRole });
+            return json({ token, user: { id: username, username, name: username, role: mwRole } });
+          } catch {
+            // MW auth failed — fall through to invalid credentials
+          }
+        }
+
+        return json({ error: "invalid credentials" }, 401);
       } catch (e) { return json({ error: (e as Error).message }, 500); }
     }
 
