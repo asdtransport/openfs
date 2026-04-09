@@ -267,26 +267,47 @@ app.route("/api/s3", s3ApiRoutes);
 // ── MinIO Console reverse proxy ──────────────────────────────────────────────
 const MINIO_CONSOLE = process.env.MINIO_CONSOLE_URL || "http://localhost:9001";
 
+app.all("/minio", (c) => c.redirect("/minio/", 301));
+
 app.all("/minio/*", async (c) => {
   const url = new URL(c.req.url);
-  const path = url.pathname.replace(/^\/minio/, "");
+  const path = url.pathname.replace(/^\/minio/, "") || "/";
   const targetUrl = `${MINIO_CONSOLE}${path}${url.search}`;
   try {
     const headers = new Headers();
     for (const [key, value] of Object.entries(c.req.header())) {
-      if (key.toLowerCase() !== "host" && key.toLowerCase() !== "content-length" && value) {
+      const k = key.toLowerCase();
+      if (k !== "host" && k !== "content-length" && k !== "transfer-encoding" && value) {
         headers.set(key, value);
       }
     }
-    const fetchOpts: RequestInit = { method: c.req.method, headers };
+    const fetchOpts: RequestInit = { method: c.req.method, headers, redirect: "follow" };
     if (c.req.method !== "GET" && c.req.method !== "HEAD") {
-      fetchOpts.body = await c.req.raw.text();
+      fetchOpts.body = await c.req.raw.arrayBuffer();
     }
     const upstream = await fetch(targetUrl, fetchOpts);
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, key) => {
-      if (key.toLowerCase() !== "transfer-encoding") responseHeaders.set(key, value);
+      const k = key.toLowerCase();
+      if (k !== "transfer-encoding" && k !== "content-encoding" && k !== "content-length") {
+        responseHeaders.set(key, value);
+      }
     });
+
+    const contentType = upstream.headers.get("content-type") || "";
+
+    // Rewrite HTML: fix absolute asset paths (/static/…, /ws, etc.) to /minio/…
+    if (contentType.includes("text/html")) {
+      let html = await upstream.text();
+      // Rewrite src="/  href="/  action="/  url(/  to include /minio prefix
+      html = html
+        .replace(/(src|href|action)="\//g, '$1="/minio/')
+        .replace(/url\(\//g, "url(/minio/")
+        .replace(/(content|href)="\/minio\/minio\//g, '$1="/minio/'); // avoid double prefix
+      responseHeaders.set("content-type", "text/html; charset=utf-8");
+      return new Response(html, { status: upstream.status, headers: responseHeaders });
+    }
+
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch (err: any) {
     return c.json({ error: "MinIO Console unavailable", detail: err.message }, 503);
