@@ -826,6 +826,40 @@ Bun.serve({
       return json(r);
     }
 
+    // POST /migrate — copy all local MW pages to a remote MW instance
+    // Body: { targetUrl, username, password, summary? }
+    if (url.pathname === "/migrate" && req.method === "POST") {
+      if (!bot) return json({ error: "local MW not connected" }, 503);
+      try {
+        const { targetUrl, username, password, summary = "Migrated from OpenFS local wiki" } = await req.json() as any;
+        if (!targetUrl || !username || !password) return json({ error: "targetUrl, username, password required" }, 400);
+
+        const remote = new MwBot({ baseUrl: targetUrl, username, password });
+        await remote.login();
+        log(`[migrate] Logged into remote MW at ${targetUrl} as ${username}`);
+
+        const titles = await bot.getAllPages({ limit: 500 });
+        log(`[migrate] Found ${titles.length} pages to migrate`);
+
+        let pushed = 0, failed = 0;
+        const errors: string[] = [];
+        for (const title of titles) {
+          try {
+            const page = await bot.getPage(title);
+            if (!page?.content?.trim()) { log(`[migrate] skip empty: ${title}`); continue; }
+            await remote.editPage(title, page.content, summary);
+            log(`[migrate] pushed: ${title}`);
+            pushed++;
+          } catch (e: any) {
+            log(`[migrate] failed: ${title} — ${e.message}`);
+            errors.push(`${title}: ${e.message}`);
+            failed++;
+          }
+        }
+        return json({ ok: true, total: titles.length, pushed, failed, errors });
+      } catch (e: any) { return json({ error: e.message }, 500); }
+    }
+
     // POST /query — RAG: grep + semantic search always, then LLM answers with context
     if (url.pathname === "/query" && req.method === "POST") {
       if (!sync) return json({ answer: "Knowledge base not connected. Set MW_URL to enable wiki sync.", sources: [] });
