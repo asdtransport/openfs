@@ -5,7 +5,7 @@
  *
  * Usage:
  *   import { AgentWiki, createClaudeAdapter } from "@openfs/agent-wiki";
- *   import { createAgentFs } from "@openfs/wasm";
+ *   import { createAgentFs } from "openfs-wasm";
  *
  *   const fs   = await createAgentFs({ writable: true });
  *   const llm  = createClaudeAdapter({ apiKey: "sk-ant-..." });

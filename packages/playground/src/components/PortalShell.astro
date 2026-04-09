@@ -16,7 +16,7 @@ const { title, active = 'chat', noPadding = false } = Astro.props;
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
   <!-- Global portal constants — must load before any page scripts -->
   <script is:inline>
-    const API = 'http://localhost:4322';
+    const API = location.origin + '/sync';
     function getToken() { return localStorage.getItem('openfs_token'); }
     function logout() {
       localStorage.removeItem('openfs_token');

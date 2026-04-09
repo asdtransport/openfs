@@ -1,0 +1,165 @@
+# ============================================================
+# OpenFS — Railway Dockerfile (single container, all-in-one)
+#
+# Bundles:
+#   1. Astro playground (built to static files)
+#   2. Bun API server (@openfs/server on PORT)
+#   3. Bun sync server (@openfs/agent-wiki-mw on 4322)
+#   4. Python S3 management API (@openfs/adapter-s3-api on 8080)
+#   5. ChromaDB vector store (port 8000)
+#   6. MinIO S3-compatible object storage (port 9000)
+#   7. MediaWiki (PHP built-in server on port 8082)
+# ============================================================
+
+# ── Stage 0: Pull MediaWiki source from official image ───────
+FROM mediawiki:1.43 AS mediawiki-src
+
+# ── Stage 1: Build Astro Playground ──────────────────────────
+FROM node:20-slim AS playground-builder
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm@9
+
+# Copy workspace config for dependency resolution
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.json ./
+
+# Copy all package.json files that playground depends on
+COPY packages/playground/package.json packages/playground/
+COPY packages/core/package.json packages/core/
+COPY packages/grep-optimizer/package.json packages/grep-optimizer/
+COPY packages/wasm/package.json packages/wasm/
+COPY packages/agent-wiki/package.json packages/agent-wiki/
+COPY packages/adapter-sqlite/package.json packages/adapter-sqlite/
+COPY packages/adapter-chroma/package.json packages/adapter-chroma/
+COPY packages/adapter-s3/package.json packages/adapter-s3/
+COPY packages/server/package.json packages/server/
+COPY packages/agent-wiki-mw/package.json packages/agent-wiki-mw/
+COPY packages/agent-knowledge/package.json packages/agent-knowledge/
+COPY packages/bot-telegram/package.json packages/bot-telegram/
+
+# Install all workspace deps
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy source for packages the playground's Vite build resolves via alias
+COPY packages/core/ packages/core/
+COPY packages/grep-optimizer/ packages/grep-optimizer/
+COPY packages/wasm/ packages/wasm/
+COPY packages/agent-wiki/ packages/agent-wiki/
+COPY packages/playground/ packages/playground/
+
+# Build Astro to static files
+RUN pnpm --filter @openfs/playground build
+
+
+# ── Stage 2: Bun workspace deps ─────────────────────────────
+FROM oven/bun:1-debian AS bun-builder
+
+WORKDIR /app
+
+# Install pnpm
+RUN bun install -g pnpm
+
+# Copy workspace config
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+
+# Copy all package.json files for workspace resolution
+COPY packages/core/package.json packages/core/
+COPY packages/adapter-sqlite/package.json packages/adapter-sqlite/
+COPY packages/adapter-chroma/package.json packages/adapter-chroma/
+COPY packages/adapter-s3/package.json packages/adapter-s3/
+COPY packages/grep-optimizer/package.json packages/grep-optimizer/
+COPY packages/wasm/package.json packages/wasm/
+COPY packages/server/package.json packages/server/
+COPY packages/agent-wiki/package.json packages/agent-wiki/
+COPY packages/agent-wiki-mw/package.json packages/agent-wiki-mw/
+COPY packages/agent-knowledge/package.json packages/agent-knowledge/
+COPY packages/playground/package.json packages/playground/
+COPY packages/bot-telegram/package.json packages/bot-telegram/
+
+# Install all deps
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy all source
+COPY . .
+
+# Build workspace packages that export from dist/
+RUN cd packages/wasm && bun run build || true
+
+
+# ── Stage 3: Final runtime (python:3.11 + uv + Bun) ─────────
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# Install system deps + PHP for MediaWiki
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmagic1 \
+    curl \
+    sqlite3 \
+    unzip \
+    bash \
+    php-cli \
+    php-sqlite3 \
+    php-mbstring \
+    php-xml \
+    php-intl \
+    php-curl \
+    php-gd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv (fast Python package manager)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
+# Install Python deps with uv (system-wide, no venv needed)
+COPY packages/adapter-s3-api/requirements.txt /tmp/requirements.txt
+RUN uv pip install --system -r /tmp/requirements.txt \
+    && uv pip install --system chromadb==0.6.3 \
+    && rm /tmp/requirements.txt
+
+# Download MinIO server + client binary (auto-detect arch)
+ARG TARGETARCH
+RUN ARCH=$(echo ${TARGETARCH:-$(dpkg --print-architecture)} | sed 's/amd64/amd64/;s/arm64/arm64/') \
+    && curl -fSL "https://dl.min.io/server/minio/release/linux-${ARCH}/minio" -o /usr/local/bin/minio \
+    && chmod +x /usr/local/bin/minio \
+    && curl -fSL "https://dl.min.io/client/mc/release/linux-${ARCH}/mc" -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc
+
+# Copy Bun workspace (node_modules + source) from builder
+COPY --from=bun-builder /app /app
+
+# Copy built Astro playground static files
+COPY --from=playground-builder /app/packages/playground/dist /app/playground-dist
+
+# Copy adapter-s3-api Python source
+COPY packages/adapter-s3-api/ /app/packages/adapter-s3-api/
+
+# Copy MediaWiki source from official image + overlay our config
+COPY --from=mediawiki-src /var/www/html /app/packages/mediawiki
+COPY packages/mediawiki/LocalSettings.php /app/packages/mediawiki/LocalSettings.php
+
+# Create persistent data directories
+RUN mkdir -p /data /data/minio /data/chroma /data/mediawiki
+
+# MediaWiki env defaults
+ENV MW_URL="http://localhost:8082"
+ENV MW_SERVER="http://localhost:8082"
+
+# Copy MediaWiki PHP router and entrypoint
+COPY mediawiki-router.php /app/mediawiki-router.php
+COPY start-railway.sh /app/start-railway.sh
+RUN chmod +x /app/start-railway.sh
+
+# Public port (Hono server)
+EXPOSE 3456
+
+CMD ["/app/start-railway.sh"]

@@ -182,7 +182,7 @@ import AppShell from '../components/AppShell.astro';
 
   // ─── Mode state ──────────────────────────────────────────────────────────
   let currentMode = "wasm";
-  const SERVER_URL = "http://localhost:4322";
+  const SERVER_URL = location.origin + "/sync";
 
   async function serverApi(method, path, body) {
     try {
@@ -340,8 +340,8 @@ import AppShell from '../components/AppShell.astro';
       termTitle.textContent = `openfs — just-bash + ${info.label}`;
       writeln(c.accent("⚡ WASM mode — just-bash + SQLite / Chroma / S3"));
     } else {
-      termTitle.textContent = "openfs — Wiki server (localhost:4322)";
-      writeln(c.cyan("🌐 Server mode — MediaWiki sync server  ") + c.dim("localhost:4322"));
+      termTitle.textContent = "openfs — Wiki sync server";
+      writeln(c.cyan("🌐 Server mode — MediaWiki sync server  ") + c.dim("/sync"));
     }
   }
 
@@ -548,7 +548,7 @@ import AppShell from '../components/AppShell.astro';
 
     if (cmd === "help") {
       writeln(c.bold("OpenFS Server CLI — Wiki sync server commands"));
-      writeln(c.dim("Connected to agent-wiki-mw  localhost:4322"));
+      writeln(c.dim("Connected to agent-wiki-mw  /sync"));
       writeln("");
       writeln(c.dim("── Wiki ──────────────────────────────────────────────────────────────"));
       writeln(`  ${c.cyan("pages")}                      List all wiki pages`);

@@ -683,7 +683,7 @@ import AppShell from '../components/AppShell.astro';
 </style>
 
 <script>
-  const SERVER = "http://localhost:4322";
+  const SERVER = location.origin + "/sync";
 
   async function apiFetch(path, body, method) {
     const m = method ?? (body !== undefined ? "POST" : "GET");

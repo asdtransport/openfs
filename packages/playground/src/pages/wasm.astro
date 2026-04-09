@@ -344,7 +344,7 @@
 
   <script is:inline src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.js"></script>
   <script>
-    import { createAgentFs } from "@openfs/wasm";
+    import { createAgentFs } from "openfs-wasm";
 
     // ── Terminal helpers ────────────────────────────────────────────────────────
     const box = document.getElementById("terminal");
@@ -460,9 +460,7 @@
     });
 
     // ── Mode: wasm | server ──────────────────────────────────────────────────────
-    const SERVER_API = location.protocol === 'https:'
-      ? 'https://api.openfs.derekethandavis.com'
-      : 'http://localhost:4322';
+    const SERVER_API = location.origin + '/sync';
 
     let mode = 'wasm'; // 'wasm' | 'server'
 

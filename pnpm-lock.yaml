@@ -72,7 +72,7 @@ importers:
       '@openfs/agent-wiki':
         specifier: workspace:*
         version: link:../agent-wiki
-      '@openfs/wasm':
+      openfs-wasm:
         specifier: workspace:*
         version: link:../wasm
     devDependencies:
@@ -122,7 +122,7 @@ importers:
       '@openfs/core':
         specifier: workspace:*
         version: link:../core
-      '@openfs/wasm':
+      openfs-wasm:
         specifier: workspace:*
         version: link:../wasm
     devDependencies:
@@ -141,7 +141,7 @@ importers:
       '@openfs/agent-wiki':
         specifier: workspace:*
         version: link:../agent-wiki
-      '@openfs/wasm':
+      openfs-wasm:
         specifier: workspace:*
         version: link:../wasm
     devDependencies:
@@ -182,9 +182,6 @@ importers:
 
   packages/playground:
     dependencies:
-      '@openfs/wasm':
-        specifier: workspace:*
-        version: link:../wasm
       '@xterm/addon-fit':
         specifier: ^0.10.0
         version: 0.10.0(@xterm/xterm@5.5.0)
@@ -197,6 +194,9 @@ importers:
       astro:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@25.5.2)(idb-keyval@6.2.2)(rollup@4.60.1)(typescript@5.9.3)(yaml@2.8.3)
+      openfs-wasm:
+        specifier: workspace:*
+        version: link:../wasm
 
   packages/server:
     dependencies:
@@ -224,12 +224,6 @@ importers:
 
   packages/wasm:
     dependencies:
-      '@openfs/core':
-        specifier: workspace:*
-        version: link:../core
-      '@openfs/grep-optimizer':
-        specifier: workspace:*
-        version: link:../grep-optimizer
       just-bash:
         specifier: ^2.14.0
         version: 2.14.0
@@ -237,12 +231,21 @@ importers:
         specifier: ^1.12.0
         version: 1.14.1
     devDependencies:
+      '@openfs/core':
+        specifier: workspace:*
+        version: link:../core
+      '@openfs/grep-optimizer':
+        specifier: workspace:*
+        version: link:../grep-optimizer
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.39
       '@types/sql.js':
         specifier: ^1.4.9
         version: 1.4.11
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
 
 packages:
 

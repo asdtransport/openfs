@@ -253,8 +253,8 @@ import AppShell from '../components/AppShell.astro';
 </style>
 
 <script is:inline>
-  const API = location.protocol === 'https:' ? 'https://api.openfs.derekethandavis.com' : 'http://localhost:4322';
-  const MW  = 'https://mw.openfs.derekethandavis.com';
+  const API = location.origin + '/sync';
+  const MW  = window.__MW_PUBLIC_URL || '/sync';
 
   async function apiFetch(path, body, method) {
     const m = method ?? (body !== undefined ? 'POST' : 'GET');

@@ -19,7 +19,7 @@
   "dependencies": {
     "@openfs/adapter-sqlite": "workspace:*",
     "@openfs/agent-wiki": "workspace:*",
-    "@openfs/wasm": "workspace:*"
+    "openfs-wasm": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

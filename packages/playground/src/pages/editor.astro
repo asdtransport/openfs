@@ -267,7 +267,7 @@ import AppShell from '../components/AppShell.astro';
 
 <script is:inline src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
 <script is:inline>
-  const API = location.protocol === 'https:' ? 'https://api.openfs.derekethandavis.com' : 'http://localhost:4322';
+  const API = location.origin + '/sync';
   let currentPath = null;
   let allPages = [];
   let easyMDE = null;

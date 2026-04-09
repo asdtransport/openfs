@@ -12,8 +12,11 @@ const root = resolve(__dirname, "../..");
 const workspaceAlias = {
   "@openfs/core":           resolve(root, "packages/core/src/index.ts"),
   "@openfs/grep-optimizer": resolve(root, "packages/grep-optimizer/src/index.ts"),
-  "@openfs/wasm":           resolve(root, "packages/wasm/src/index.ts"),
+  "openfs-wasm":            resolve(root, "packages/wasm/src/index.ts"),
   "@openfs/agent-wiki":     resolve(root, "packages/agent-wiki/src/index.ts"),
+  // Shim node:zlib for browser — just-bash imports gunzipSync but never uses it in-browser
+  "node:zlib":              resolve(__dirname, "src/shims/node-zlib.js"),
+  "zlib":                   resolve(__dirname, "src/shims/node-zlib.js"),
 };
 
 export default defineConfig({

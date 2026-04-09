@@ -12,7 +12,7 @@
  *   const { answer } = await wiki.query("how does auth work?");
  */
 
-import type { AgentFs } from "@openfs/wasm";
+import type { AgentFs } from "openfs-wasm";
 import type {
   LlmAdapter,
   WikiOptions,

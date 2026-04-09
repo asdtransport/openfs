@@ -20,7 +20,7 @@ import { MwBot } from "./bot.js";
 import { OpenFsMwSync } from "./sync.js";
 import { S3KnowledgePipeline, ChromaStore } from "../../agent-knowledge/src/index.js";
 
-const PORT          = parseInt(process.env.PORT ?? "4322");
+const PORT          = parseInt(process.env.SYNC_PORT ?? process.env.WIKI_MW_PORT ?? "4322");
 const MW_URL        = process.env.MW_URL  ?? "http://localhost:8082";
 const MW_PUBLIC_URL = process.env.MW_PUBLIC_URL ?? MW_URL; // browser-accessible URL
 const MW_USER       = process.env.MW_USER ?? "Derek";
@@ -363,17 +363,22 @@ const OPENFS_DB_PATH = process.env.OPENFS_DB_PATH ?? new URL("../../openfs.db", 
 const CHROMA_URL     = process.env.CHROMA_URL ?? "http://localhost:8000";
 
 async function boot() {
-  log(`[boot] loading @openfs/wasm…`);
-  const { createAgentFsFromAdapter } = await import("@openfs/wasm");
+  log(`[boot] loading openfs-wasm…`);
+  const { createAgentFsFromAdapter } = await import("openfs-wasm");
   log(`[boot] loading @openfs/agent-wiki…`);
   const { AgentWiki }                = await import("@openfs/agent-wiki");
   log(`[boot] loading @openfs/adapter-sqlite…`);
   const { SqliteAdapter }            = await import("@openfs/adapter-sqlite");
   log(`[boot] imports loaded`);
-  log(`Attempting MW login at ${MW_URL} as ${MW_USER}…`);
-  bot = new MwBot({ baseUrl: MW_URL, username: MW_USER, password: MW_PASS });
-  await bot.login();
-  log(`Logged in as ${MW_USER} @ ${MW_URL}`);
+  // MediaWiki login — only if MW_URL is explicitly set
+  if (process.env.MW_URL) {
+    log(`Attempting MW login at ${MW_URL} as ${MW_USER}…`);
+    bot = new MwBot({ baseUrl: MW_URL, username: MW_USER, password: MW_PASS });
+    await bot.login();
+    log(`Logged in as ${MW_USER} @ ${MW_URL}`);
+  } else {
+    log(`MW_URL not set — running without MediaWiki sync`);
+  }
 
   // Use native bun:sqlite for server-side persistence — data survives restarts.
   // OPENFS_DB_PATH env var controls the file location (volume-mount in Docker).
@@ -383,7 +388,9 @@ async function boot() {
   const fs   = await createAgentFsFromAdapter(adapter, { writable: true });
   const llm  = makeLlm();
   const wiki = await AgentWiki.create(fs, llm);
-  sync = new OpenFsMwSync(bot, wiki);
+  if (bot) {
+    sync = new OpenFsMwSync(bot, wiki);
+  }
 
   // Integration manager — lazy import to avoid top-level bun:sqlite at module load
   const { IntegrationManager } = await import("./integrations.js");
@@ -395,13 +402,13 @@ async function boot() {
   await usersStore.seedDefaultAdmin();
   feedbackStore = new FeedbackStore(rawDb);
 
-  // Initial pull
-  await doPull();
-
-  // Start polling
-  setInterval(async () => {
-    if (!syncRunning) await doSyncRecent();
-  }, SYNC_INTERVAL);
+  // Initial pull + polling — only if MW is connected
+  if (bot && sync) {
+    await doPull();
+    setInterval(async () => {
+      if (!syncRunning) await doSyncRecent();
+    }, SYNC_INTERVAL);
+  }
 
   log(`Sync server ready on :${PORT}`);
 }
@@ -765,7 +772,7 @@ Bun.serve({
 
     // GET /recent-changes — recent MW changes with bot/human/synthesized labels
     if (url.pathname === "/recent-changes") {
-      if (!bot) return json({ error: "not ready" }, 503);
+      if (!bot) return json([]);
       const limit = parseInt(url.searchParams.get("limit") ?? "30");
       const [changes, synthSet] = await Promise.all([
         bot.getRecentChanges(limit),
@@ -785,7 +792,7 @@ Bun.serve({
 
     // GET /synth-map — show the persistent synthesis map
     if (url.pathname === "/synth-map") {
-      if (!bot) return json({ error: "not ready" }, 503);
+      if (!bot) return json({});
       const map = await loadSynthesisMap();
       return json(map);
     }
@@ -821,7 +828,7 @@ Bun.serve({
 
     // POST /query — RAG: grep + semantic search always, then LLM answers with context
     if (url.pathname === "/query" && req.method === "POST") {
-      if (!sync) return json({ error: "not ready" }, 503);
+      if (!sync) return json({ answer: "Knowledge base not connected. Set MW_URL to enable wiki sync.", sources: [] });
       const { question, persist } = await req.json() as any;
 
       // Special case: list pages
@@ -946,7 +953,7 @@ Bun.serve({
     // (ingest URL, expand topic, read specific page, CLI-style operations)
     // Use /query for normal questions — this is for explicit agent actions
     if (url.pathname === "/query-agent" && req.method === "POST") {
-      if (!sync) return json({ error: "not ready" }, 503);
+      if (!sync) return json({ answer: "Knowledge base not connected. Set MW_URL to enable wiki sync.", sources: [] });
       const { question } = await req.json() as any;
 
       const chromaStore = new ChromaStore({
@@ -1203,7 +1210,7 @@ Never answer from memory alone. Cite sources by path.`,
     // GET /map — show link status between OpenFS and MW
     // Source of truth: Category:OpenFS Synthesized = pages we own in MW
     if (url.pathname === "/map") {
-      if (!sync || !bot) return json({ error: "not ready" }, 503);
+      if (!sync || !bot) return json({ linked: [], ofsOnly: [], mwOnly: [], summary: { linked: 0, ofsOnly: 0, mwOnly: 0 } });
 
       const [ofsPages, synthTitles, allMwTitles] = await Promise.all([
         (sync as any).wiki.pages(),
@@ -1246,14 +1253,14 @@ Never answer from memory alone. Cite sources by path.`,
 
     // GET /pages — list OpenFS pages
     if (url.pathname === "/pages") {
-      if (!sync) return json({ error: "not ready" }, 503);
+      if (!sync) return json([]);
       const pages = await (sync as any).wiki.pages();
       return json(pages.map((p: any) => ({ path: p.path, title: p.title, size: p.size })));
     }
 
     // GET /mw-pages — list MW pages
     if (url.pathname === "/mw-pages") {
-      if (!bot) return json({ error: "not ready" }, 503);
+      if (!bot) return json([]);
       const titles = await bot.getAllPages({ limit: 1000 });
       return json(titles);
     }
@@ -2191,7 +2198,7 @@ Format your response as a synthesized narrative answer only. No trailing source 
   },
 });
 
-async function bootWithRetry(attempts = 8, delayMs = 5000) {
+async function bootWithRetry(attempts = 3, delayMs = 3000) {
   for (let i = 1; i <= attempts; i++) {
     try {
       await boot();

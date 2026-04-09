@@ -29,7 +29,7 @@ $wgMetaNamespace = "Derek_Davis";
 ## For more information on customizing the URLs
 ## (like /w/index.php/Page_title to /wiki/Page_title) please see:
 ## https://www.mediawiki.org/wiki/Manual:Short_URL
-$wgScriptPath = "";
+$wgScriptPath = getenv('MW_SCRIPT_PATH') ?: "";
 
 ## The protocol and server name to use in fully-qualified URLs
 $wgServer = getenv('MW_SERVER') ?: "http://localhost:8082";
@@ -187,13 +187,21 @@ $wgUploadPath = "$wgScriptPath/images";
 $wgGroupPermissions['bot']['apihighlimits'] = true;
 
 # ── Short URLs ────────────────────────────────────────────────────────────────
-$wgArticlePath = "/wiki/$1";
+$wgArticlePath = "$wgScriptPath/wiki/$1";
 
 # ── OpenFS terminal embed ─────────────────────────────────────────────────────
 $wgRawHtml = true;
 
 # ── Gadgets extension ─────────────────────────────────────────────────────────
 wfLoadExtension( 'Gadgets' );
+
+# ── Debugging (Railway) ───────────────────────────────────────────────────────
+$wgShowExceptionDetails = true;
+
+# ── SQLite data dir (allow env override) ─────────────────────────────────────
+if ( getenv('MW_SQLITE_DATA_DIR') ) {
+    $wgSQLiteDataDir = getenv('MW_SQLITE_DATA_DIR');
+}
 
 # End of automatically generated settings.
 

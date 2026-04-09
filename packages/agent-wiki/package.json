@@ -11,7 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@openfs/wasm": "workspace:*",
+    "openfs-wasm": "workspace:*",
     "@openfs/core": "workspace:*"
   },
   "devDependencies": {

@@ -315,7 +315,7 @@ import AppShell from '../components/AppShell.astro';
 </style>
 
 <script>
-const API = 'http://localhost:4322';
+const API = location.origin + '/sync';
 
 let currentCollection = 'openfs-knowledge';
 let currentOffset = 0;

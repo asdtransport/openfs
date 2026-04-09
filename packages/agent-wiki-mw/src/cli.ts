@@ -84,7 +84,7 @@ async function makeBot(): Promise<MwBot> {
 }
 
 async function makeSync(bot: MwBot): Promise<OpenFsMwSync> {
-  const { createAgentFs } = await import("@openfs/wasm");
+  const { createAgentFs } = await import("openfs-wasm");
   const { AgentWiki } = await import("@openfs/agent-wiki");
 
   const llm = makeLlm();

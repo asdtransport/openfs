@@ -12,6 +12,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { serveStatic } from "hono/bun";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
 import { Bash } from "just-bash";
 import { PathTree } from "@openfs/core";
 import { createOpenFs } from "@openfs/core";
@@ -261,34 +264,141 @@ app.route("/api/fs", createFsRoutes(sqliteAdapter, getAdapter));
 app.route("/api/admin", createAdminRoutes(sqliteAdapter));
 app.route("/api/s3", s3ApiRoutes);
 
-// Landing
-app.get("/", (c) =>
-  c.json({
-    name: "@openfs/server",
-    version: "0.1.0",
-    adapters: {
-      sqlite: "ready",
-      chroma: chromaBash ? "ready" : `unavailable: ${chromaError}`,
-      s3: s3Bash ? "ready" : `unavailable: ${s3Error}`,
-    },
-    s3_api: {
-      status: "proxied",
-      upstream: process.env.MINIO_API_URL || "http://localhost:8080",
-      docs: `${process.env.MINIO_API_URL || "http://localhost:8080"}/docs`,
-      proxy: "/api/s3/* -> adapter-s3-api /api/v1/*",
-    },
-    endpoints: {
-      exec: 'POST /api/fs/exec  { command: "ls /docs", adapter: "sqlite"|"chroma"|"s3" }',
-      read: "GET  /api/fs/read?path=/docs/auth/oauth.mdx",
-      readdir: "GET  /api/fs/readdir?path=/docs&adapter=sqlite|chroma|s3",
-      search: 'POST /api/fs/search  { query: "access_token" }',
-      s3_buckets: "GET  /api/s3/buckets",
-      s3_objects: "GET  /api/s3/objects/list/{bucket}",
-      s3_health: "GET  /api/s3/monitoring/health",
-      health: "GET  /health",
-    },
-  }),
-);
+// ── MinIO Console reverse proxy ──────────────────────────────────────────────
+const MINIO_CONSOLE = process.env.MINIO_CONSOLE_URL || "http://localhost:9001";
+
+app.all("/minio/*", async (c) => {
+  const url = new URL(c.req.url);
+  const path = url.pathname.replace(/^\/minio/, "");
+  const targetUrl = `${MINIO_CONSOLE}${path}${url.search}`;
+  try {
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(c.req.header())) {
+      if (key.toLowerCase() !== "host" && key.toLowerCase() !== "content-length" && value) {
+        headers.set(key, value);
+      }
+    }
+    const fetchOpts: RequestInit = { method: c.req.method, headers };
+    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+      fetchOpts.body = await c.req.raw.text();
+    }
+    const upstream = await fetch(targetUrl, fetchOpts);
+    const responseHeaders = new Headers();
+    upstream.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "transfer-encoding") responseHeaders.set(key, value);
+    });
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (err: any) {
+    return c.json({ error: "MinIO Console unavailable", detail: err.message }, 503);
+  }
+});
+
+// ── MediaWiki reverse proxy ───────────────────────────────────────────────────
+const MW_INTERNAL = process.env.MW_URL || "http://localhost:8082";
+
+app.all("/mw/*", async (c) => {
+  const url = new URL(c.req.url);
+  const path = url.pathname.replace(/^\/mw/, "");
+  const targetUrl = `${MW_INTERNAL}${path}${url.search}`;
+  try {
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(c.req.header())) {
+      if (key.toLowerCase() !== "host" && key.toLowerCase() !== "content-length" && value) {
+        headers.set(key, value);
+      }
+    }
+    const fetchOpts: RequestInit = { method: c.req.method, headers };
+    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+      fetchOpts.body = await c.req.raw.text();
+    }
+    const upstream = await fetch(targetUrl, fetchOpts);
+    const responseHeaders = new Headers();
+    upstream.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "transfer-encoding") responseHeaders.set(key, value);
+    });
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (err: any) {
+    return c.json({ error: "MediaWiki unavailable", detail: err.message }, 503);
+  }
+});
+
+// ── Sync server proxy (agent-wiki-mw) ─────────────────────────────────────────
+const SYNC_URL = process.env.SYNC_URL || "http://localhost:4322";
+
+app.all("/sync/*", async (c) => {
+  const url = new URL(c.req.url);
+  const path = url.pathname.replace(/^\/sync/, "");
+  const targetUrl = `${SYNC_URL}${path}${url.search}`;
+  try {
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(c.req.header())) {
+      if (key.toLowerCase() !== "host" && key.toLowerCase() !== "content-length" && value) {
+        headers.set(key, value);
+      }
+    }
+    const fetchOpts: RequestInit = { method: c.req.method, headers };
+    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+      fetchOpts.body = await c.req.raw.text();
+    }
+    const upstream = await fetch(targetUrl, fetchOpts);
+    const responseHeaders = new Headers();
+    upstream.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "transfer-encoding") responseHeaders.set(key, value);
+    });
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (err: any) {
+    return c.json({ error: "Sync server unavailable", detail: err.message }, 503);
+  }
+});
+
+// ── Static playground serving (production) ────────────────────────────────────
+const STATIC_DIR = process.env.STATIC_DIR;
+
+if (STATIC_DIR && existsSync(STATIC_DIR)) {
+  console.log(`📁 Serving static playground from ${STATIC_DIR}`);
+
+  // Serve static assets
+  app.use("/*", serveStatic({ root: STATIC_DIR }));
+
+  // SPA fallback — serve index.html for unmatched routes
+  app.get("*", (c) => {
+    const indexPath = join(STATIC_DIR, "index.html");
+    if (existsSync(indexPath)) {
+      const html = readFileSync(indexPath, "utf-8");
+      return c.html(html);
+    }
+    return c.json({ error: "index.html not found" }, 404);
+  });
+} else {
+  // Dev/API-only mode — show JSON landing
+  app.get("/", (c) =>
+    c.json({
+      name: "@openfs/server",
+      version: "0.1.0",
+      adapters: {
+        sqlite: "ready",
+        chroma: chromaBash ? "ready" : `unavailable: ${chromaError}`,
+        s3: s3Bash ? "ready" : `unavailable: ${s3Error}`,
+      },
+      s3_api: {
+        status: "proxied",
+        upstream: process.env.MINIO_API_URL || "http://localhost:8080",
+        docs: `${process.env.MINIO_API_URL || "http://localhost:8080"}/docs`,
+        proxy: "/api/s3/* -> adapter-s3-api /api/v1/*",
+      },
+      endpoints: {
+        exec: 'POST /api/fs/exec  { command: "ls /docs", adapter: "sqlite"|"chroma"|"s3" }',
+        read: "GET  /api/fs/read?path=/docs/auth/oauth.mdx",
+        readdir: "GET  /api/fs/readdir?path=/docs&adapter=sqlite|chroma|s3",
+        search: 'POST /api/fs/search  { query: "access_token" }',
+        s3_buckets: "GET  /api/s3/buckets",
+        s3_objects: "GET  /api/s3/objects/list/{bucket}",
+        s3_health: "GET  /api/s3/monitoring/health",
+        health: "GET  /health",
+      },
+    }),
+  );
+}
 
 const port = parseInt(process.env.PORT || "3456", 10);
 console.log(`🗂️  OpenFS server running on http://localhost:${port}`);

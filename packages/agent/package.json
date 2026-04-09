@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@openfs/wasm": "workspace:*",
+    "openfs-wasm": "workspace:*",
     "@openfs/agent-wiki": "workspace:*"
   },
   "devDependencies": {
