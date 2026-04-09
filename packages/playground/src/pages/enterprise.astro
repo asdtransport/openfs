@@ -254,7 +254,7 @@ import AppShell from '../components/AppShell.astro';
 
 <script is:inline>
   const API = location.origin + '/sync';
-  const MW  = window.__MW_PUBLIC_URL || '/sync';
+  const MW  = window.__MW_PUBLIC_URL || (location.origin + '/mw');
 
   async function apiFetch(path, body, method) {
     const m = method ?? (body !== undefined ? 'POST' : 'GET');
