@@ -1864,10 +1864,11 @@ Never answer from memory alone. Cite sources by path.`,
     // ── Chroma Browser API ────────────────────────────────────────────────────
 
     // GET /chroma/collections — list all collections with counts
+    // NOTE: do NOT call store.init() here — init() calls getOrCreateCollection (POST)
+    // which causes _type errors on ChromaDB 0.6+. listCollections() only needs the client.
     if (url.pathname === "/chroma/collections" && req.method === "GET") {
       try {
         const store = new ChromaStore({ chromaUrl: CHROMA_URL });
-        await store.init();
         return json(await store.listCollections());
       } catch (e) { return json({ error: (e as Error).message }, 500); }
     }
