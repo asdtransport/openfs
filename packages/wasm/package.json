@@ -1,5 +1,5 @@
 {
-  "name": "@openfs/wasm",
+  "name": "openfs-wasm",
   "version": "0.1.0",
   "description": "Sandboxed virtual filesystem for AI agents. One import, one call — runs in Browser, Node.js, Bun, Deno. No native code.",
   "type": "module",
@@ -27,7 +27,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && bun run build:js && bun run build:types",
-    "build:js": "bun build src/index.ts --outdir dist --format esm --target browser --external sql.js --external just-bash && bun build src/adapter.ts --outdir dist --format esm --target browser --external sql.js --external just-bash && bun build src/cli.ts --outdir dist --format esm --target node --external sql.js --external just-bash",
+    "build:js": "bun build src/index.ts --outdir dist --format esm --target bun --external sql.js --external just-bash && bun build src/adapter.ts --outdir dist --format esm --target bun --external sql.js --external just-bash && bun build src/cli.ts --outdir dist --format esm --target node --external sql.js --external just-bash",
     "build:types": "cp src/types.d.ts dist/index.d.ts && cp src/adapter.d.ts dist/adapter.d.ts",
     "prepublishOnly": "bun run build",
     "cli": "bun run src/cli.ts",

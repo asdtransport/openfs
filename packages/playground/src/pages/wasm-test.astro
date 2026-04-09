@@ -1,0 +1,250 @@
+---
+// @openfs/wasm — interactive browser test page
+// Runs entirely in the browser via WASM SQLite + just-bash
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>openfs-wasm — browser test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e;
+      --text: #e0e0e8; --muted: #6b6b80; --accent: #7c5cfc;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+    }
+    body { font-family: monospace; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; }
+    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: 0.05em; }
+    .badge { font-size: 0.65rem; padding: 0.1rem 0.45rem; border-radius: 9999px; background: #2a1f6e; color: var(--accent); font-weight: 600; }
+    .badge.green { background: #14532d; color: var(--green); }
+    .status { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+    .status.ok { color: var(--green); }
+    .status.err { color: var(--red); }
+
+    main { display: flex; flex: 1; overflow: hidden; }
+
+    .sidebar { width: 220px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 1rem 0; overflow-y: auto; }
+    .sidebar h2 { font-size: 0.65rem; color: var(--muted); padding: 0 1rem 0.5rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .file-item { padding: 0.3rem 1rem; font-size: 0.8rem; cursor: pointer; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-item:hover { background: var(--surface); color: var(--text); }
+    .file-item.active { background: #1a1a2e; color: var(--accent); }
+
+    .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .upload-row { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .upload-row label { font-size: 0.75rem; color: var(--muted); }
+    .upload-row input[type=file] { font-size: 0.75rem; color: var(--muted); }
+    .upload-row button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.2rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-family: monospace; }
+    .upload-row button:hover { border-color: var(--accent); }
+
+    .quick { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .quick button { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0.2rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-family: monospace; }
+    .quick button:hover { border-color: var(--accent); color: var(--text); }
+
+    .terminal { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .output { flex: 1; overflow-y: auto; padding: 1rem; font-size: 0.8rem; line-height: 1.6; }
+    .output .line { white-space: pre-wrap; word-break: break-all; }
+    .output .line.cmd  { color: var(--accent); }
+    .output .line.out  { color: var(--text); }
+    .output .line.err  { color: var(--red); }
+    .output .line.info { color: var(--yellow); }
+    .output .line.ok   { color: var(--green); }
+    .input-row { display: flex; border-top: 1px solid var(--border); padding: 0.5rem 1rem; gap: 0.5rem; align-items: center; }
+    .prompt { color: var(--accent); font-size: 0.85rem; }
+    .input-row input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: monospace; font-size: 0.85rem; }
+    .input-row button { background: var(--accent); border: none; color: white; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-family: monospace; }
+    .input-row button:hover { background: #5a3fd6; }
+    .input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .stats-bar { padding: 0.4rem 1rem; border-top: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); display: flex; gap: 1.5rem; }
+    .stats-bar span b { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>openfs-wasm</h1>
+  <span class="badge">browser</span>
+  <span class="badge">v0.1.0</span>
+  <span class="status" id="status">booting...</span>
+</header>
+
+<main>
+  <div class="sidebar">
+    <h2>Files</h2>
+    <div id="file-tree"></div>
+  </div>
+
+  <div class="panel">
+    <div class="upload-row">
+      <label>Add file:</label>
+      <input type="file" id="file-input" multiple accept=".md,.txt,.json,.ts,.js,.py" />
+      <button id="ingest-btn" onclick="uploadFiles()">Ingest</button>
+      <button onclick="resetFs()" style="margin-left:auto;color:var(--red)">Reset FS</button>
+    </div>
+
+    <div class="quick">
+      <button onclick="run('ls /')">ls /</button>
+      <button onclick="run('ls /docs')">ls /docs</button>
+      <button onclick="run('grep -r token /docs')">grep token</button>
+      <button onclick="run('grep -ri auth /docs')">grep auth</button>
+      <button onclick="run(`find / -name '*.md'`)">find *.md</button>
+      <button onclick="run('cat /docs/auth.md')">cat auth.md</button>
+      <button onclick="run('wc -l /docs/auth.md')">wc -l</button>
+      <button onclick="runSearch('authentication')">search: auth</button>
+      <button onclick="run('stats')">stats</button>
+    </div>
+
+    <div class="terminal">
+      <div class="output" id="output"></div>
+      <div class="input-row">
+        <span class="prompt">openfs&gt;</span>
+        <input id="cmd" type="text" placeholder="ls / | grep -r token /docs | search auth | stats" autocomplete="off" />
+        <button id="run-btn" onclick="runCmd()" disabled>Run</button>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <span>Files: <b id="s-files">—</b></span>
+      <span>Size: <b id="s-size">—</b></span>
+      <span>Chunks: <b id="s-chunks">—</b></span>
+    </div>
+  </div>
+</main>
+
+<script>
+  // sql.js WASM loaded via CDN (set as global before ESM import)
+  window.__sqlJsLoaded = false;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.js" onload="window.__sqlJsLoaded=true"></script>
+
+<script is:inline>
+  // Wait for sql.js then boot
+  async function waitForSqlJs() {
+    while (!window.__sqlJsLoaded || !window.initSqlJs) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+</script>
+
+<script>
+  import { createAgentFs } from '@openfs/wasm';
+
+  let fs = null;
+  const out  = document.getElementById('output');
+  const stat = document.getElementById('status');
+  const btn  = document.getElementById('run-btn');
+  const cmd  = document.getElementById('cmd');
+
+  function log(text, cls = 'out') {
+    const d = document.createElement('div');
+    d.className = 'line ' + cls;
+    d.textContent = text;
+    out.appendChild(d);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  async function refresh() {
+    if (!fs) return;
+    const s = fs.stats();
+    document.getElementById('s-files').textContent  = s.fileCount;
+    document.getElementById('s-size').textContent   = (s.totalSize / 1024).toFixed(1) + 'KB';
+    document.getElementById('s-chunks').textContent = s.chunkCount;
+    const all = fs.query('SELECT DISTINCT path FROM files ORDER BY path');
+    const tree = document.getElementById('file-tree');
+    tree.innerHTML = '';
+    for (const { path } of all) {
+      const el = document.createElement('div');
+      el.className = 'file-item';
+      el.title = path;
+      el.textContent = path;
+      el.onclick = async () => {
+        document.querySelectorAll('.file-item').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        const content = await fs.read(path);
+        log(`\n── ${path} ──`, 'info');
+        log(content);
+      };
+      tree.appendChild(el);
+    }
+  }
+
+  // Boot
+  log('Booting WASM SQLite filesystem...', 'info');
+  try {
+    await waitForSqlJs();
+    fs = await createAgentFs({
+      wasmPath: 'https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.wasm',
+      docs: {
+        '/docs/auth.md': '# Authentication\n\nUse Bearer tokens for all API requests.\nThe access_token expires after 1 hour.\nUse the refresh_token to get a new access_token.\n\n## OAuth2\nWe support OAuth2 authorization code flow.\nRedirect URI must be registered before use.',
+        '/docs/api.md': '# API Reference\n\nPOST /users — create a new user (requires access_token)\nGET  /users/:id — get user by ID\nDELETE /users/:id — delete user (admin only)\n\n## Rate limiting\n100 requests per minute per access_token.',
+        '/docs/webhooks.md': '# Webhooks\n\nUse webhook_secret to verify incoming payloads.\nHMAC-SHA256 signature in X-Webhook-Signature header.',
+        '/docs/quickstart.md': '# Quickstart\n\n1. Get your api_key from the dashboard\n2. Exchange api_key for access_token via POST /auth/token\n3. Use access_token in Authorization: Bearer <token> header',
+      }
+    });
+    stat.textContent = 'ready';
+    stat.className = 'status ok';
+    btn.disabled = false;
+    log('✓ Filesystem ready — 4 demo files loaded', 'ok');
+    log('Try: ls /docs | grep -r token /docs | search authentication\n', 'info');
+    await refresh();
+  } catch (e) {
+    stat.textContent = 'error';
+    stat.className = 'status err';
+    log('✗ Boot failed: ' + e.message, 'err');
+    console.error(e);
+  }
+
+  window.run = async (command) => {
+    if (!fs) return;
+    log('> ' + command, 'cmd');
+    try {
+      if (command === 'stats') {
+        const s = fs.stats();
+        log(`files: ${s.fileCount}  size: ${(s.totalSize/1024).toFixed(1)}KB  chunks: ${s.chunkCount}`);
+        return;
+      }
+      const r = await fs.exec(command);
+      if (r.stdout) log(r.stdout.trimEnd());
+      if (r.stderr) log(r.stderr.trimEnd(), 'err');
+      if (r.optimized) log('(grep ran through FTS5 optimizer)', 'info');
+      if (!r.stdout && !r.stderr) log('(no output)', 'muted');
+    } catch (e) { log('Error: ' + e.message, 'err'); }
+    await refresh();
+  };
+
+  window.runSearch = async (query) => {
+    if (!fs) return;
+    log('> search ' + query, 'cmd');
+    const paths = await fs.search(query);
+    if (paths.length === 0) log('(no matches)', 'muted');
+    else log(paths.join('\n'), 'ok');
+  };
+
+  window.runCmd = async () => {
+    const val = cmd.value.trim();
+    if (!val) return;
+    cmd.value = '';
+    if (val.startsWith('search ')) await window.runSearch(val.slice(7).trim());
+    else await window.run(val);
+  };
+
+  cmd.addEventListener('keydown', e => { if (e.key === 'Enter') window.runCmd(); });
+
+  window.uploadFiles = async () => {
+    const input = document.getElementById('file-input');
+    if (!input.files.length) { log('No files selected', 'err'); return; }
+    const docs = {};
+    for (const file of input.files) {
+      docs['/uploads/' + file.name] = await file.text();
+    }
+    await fs.ingest(docs);
+    log(`✓ Ingested: ${Object.keys(docs).join(', ')}`, 'ok');
+    await refresh();
+    input.value = '';
+  };
+
+  window.resetFs = () => location.reload();
+</script>
+</body>
+</html>
