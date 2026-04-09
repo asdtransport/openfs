@@ -162,6 +162,8 @@ else
   export MW_SERVER="${MW_SERVER:-http://localhost:8082}"
   export MW_SCRIPT_PATH="${MW_SCRIPT_PATH:-}"
 fi
+# MW_PUBLIC_URL = browser-accessible wiki base URL (used by agent-wiki-mw for article links)
+export MW_PUBLIC_URL="${MW_PUBLIC_URL:-${MW_SERVER}${MW_SCRIPT_PATH}}"
 
 # Point MediaWiki SQLite data to persistent volume
 export MW_SQLITE_DATA_DIR="/data/mediawiki"
