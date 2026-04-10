@@ -160,6 +160,17 @@ else
   echo "  ✓ MediaWiki database already exists"
 fi
 
+# ── Ensure correct user exists with correct password ──────────────────────────
+# Runs every deploy so Railway env var changes take effect without volume reset.
+_MW_USER="${MW_USER:-Admin}"
+_MW_PASS="${MW_PASS:-admin12345}"
+echo "  Ensuring MW user '${_MW_USER}' exists with current password..."
+php /app/packages/mediawiki/maintenance/run.php changePassword \
+  --user="${_MW_USER}" --password="${_MW_PASS}" 2>/dev/null \
+|| php /app/packages/mediawiki/maintenance/changePassword.php \
+  --user="${_MW_USER}" --password="${_MW_PASS}" 2>/dev/null \
+|| echo "  ⚠ changePassword skipped (user may not exist yet — will be created on first login)"
+
 echo "▶ Starting MediaWiki on :8082..."
 php -S 0.0.0.0:8082 -t /app/packages/mediawiki /app/mediawiki-router.php &
 MW_PID=$!
