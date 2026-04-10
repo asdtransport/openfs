@@ -133,8 +133,14 @@ export class ChromaStore {
     const topK = opts.topK ?? 10;
     const where = opts.topic ? { topic: opts.topic } : undefined;
 
+    // Generate query embedding explicitly so we always use our client-side
+    // embedding function (OpenRouter/OpenAI 1536-dim cosine), never the
+    // server-side default (all-MiniLM-L6-v2 384-dim) that ChromaDB 1.5.x
+    // may invoke when queryTexts is passed.
+    const [queryEmbedding] = await this.embedFn.generate([query]);
+
     const results = await this.collection.query({
-      queryTexts: [query],
+      queryEmbeddings: [queryEmbedding],
       nResults: topK,
       where,
     });
