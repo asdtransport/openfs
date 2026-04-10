@@ -185,109 +185,105 @@ $wgLogos = [
 # ── OpenFS Theme CSS ──────────────────────────────────────────────────────────
 $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
     $out->addInlineStyle( '
-        /* ── OpenFS Enterprise Theme ── */
-        :root {
-            --openfs-navy:       #0f172a;
-            --openfs-navy-mid:   #1e293b;
-            --openfs-navy-light: #334155;
-            --openfs-accent:     #6366f1;
-            --openfs-accent-dim: #4f46e5;
-            --openfs-text:       #f1f5f9;
-            --openfs-muted:      #94a3b8;
-            --openfs-border:     #334155;
+        /* ── OpenFS Enterprise Theme — Vector 2022 / MW 1.43 ── */
+
+        /* Header */
+        .vector-header,
+        .vector-header-start,
+        .vector-header-end,
+        .mw-logo {
+            background-color: #0f172a !important;
+            border-bottom-color: #334155 !important;
+        }
+        .vector-header a,
+        .vector-header button,
+        #p-personal a,
+        .vector-user-links a,
+        .vector-user-menu a {
+            color: #f1f5f9 !important;
         }
 
-        /* ── Sidebar: pinned, dark navy ── */
+        /* Search */
+        .vector-search-box .cdx-text-input__input,
+        #searchInput {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+        }
+        .vector-search-box .cdx-text-input__input::placeholder { color: #64748b !important; }
+
+        /* ── Sidebar: every container Vector 2022 might use ── */
         .vector-column-start,
-        .mw-sidebar,
-        .vector-sidebar,
-        .vector-sidebar-container,
-        .vector-sidebar-container-no-toc,
-        #mw-sidebar-checkbox ~ .mw-sidebar {
-            background: var(--openfs-navy) !important;
-            border-right: 1px solid var(--openfs-border) !important;
-            min-height: 100vh !important;
+        .vector-main-menu-container,
+        #vector-main-menu-pinned-container,
+        #vector-main-menu,
+        .vector-main-menu,
+        #mw-panel,
+        .mw-panel {
+            background-color: #0f172a !important;
         }
 
-        /* Sidebar portal headings */
-        .vector-menu-portal > .vector-menu-heading button,
-        .vector-menu-portal > .vector-menu-heading,
-        .mw-portlet-label,
-        .vector-pinned-container .vector-menu-heading {
-            color: var(--openfs-muted) !important;
+        /* Sidebar portlet wrappers */
+        html body .vector-column-start .mw-portlet,
+        html body .vector-column-start .vector-menu-portal,
+        html body #vector-main-menu .mw-portlet,
+        html body #vector-main-menu .vector-menu-portal,
+        html body #mw-panel .mw-portlet {
+            background-color: #0f172a !important;
+        }
+
+        /* Section headings (ARTIFACTS, BOOKS, etc.) */
+        html body .vector-column-start h3,
+        html body .vector-column-start .mw-portlet-heading,
+        html body .vector-column-start .mw-portlet-heading button,
+        html body #vector-main-menu h3,
+        html body #vector-main-menu .mw-portlet-heading button,
+        html body #mw-panel h3 {
+            color: #94a3b8 !important;
+            background-color: transparent !important;
             font-size: 0.68rem !important;
             font-weight: 700 !important;
             letter-spacing: 0.1em !important;
             text-transform: uppercase !important;
-            border-bottom: 1px solid var(--openfs-border) !important;
+            border-bottom: 1px solid #334155 !important;
             padding-bottom: 4px !important;
-            background: transparent !important;
         }
 
-        /* Sidebar nav links — explicit dark bg so they are always visible */
-        .vector-menu-portal .vector-menu-content-list a,
-        .vector-menu-portal .vector-menu-content a,
-        .mw-portlet .mw-portlet-body a,
-        .vector-pinned-container a,
-        #p-navigation a,
-        #p-tb a {
-            color: #e2e8f0 !important;
+        /* Nav links — needs html body prefix to beat skin specificity */
+        html body .vector-column-start a,
+        html body .vector-column-start li a,
+        html body #vector-main-menu a,
+        html body #vector-main-menu li a,
+        html body #mw-panel a,
+        html body .vector-menu-portal a,
+        html body .mw-portlet-navigation a {
+            color: #cbd5e1 !important;
             font-size: 0.875rem !important;
-            font-family: system-ui, -apple-system, sans-serif !important;
         }
-        .vector-menu-portal .vector-menu-content-list a:hover,
-        .vector-menu-portal .vector-menu-content a:hover,
-        .vector-pinned-container a:hover {
+        html body .vector-column-start a:hover,
+        html body #vector-main-menu a:hover,
+        html body .vector-menu-portal a:hover {
             color: #a5b4fc !important;
             text-decoration: none !important;
         }
 
-        /* Logo area */
-        .mw-logo, .vector-header-start, .vector-header-logo-tagline-wrapper {
-            background: var(--openfs-navy) !important;
-        }
-
-        /* Top header */
-        .vector-header,
-        #vector-page-titlebar,
-        .mw-header {
-            background: var(--openfs-navy) !important;
-            border-bottom: 1px solid var(--openfs-border) !important;
-        }
-
-        /* Header text and links */
-        .vector-user-menu .vector-menu-content a,
-        .vector-user-menu-popup a,
-        #p-personal a,
-        .vector-header a,
-        .vector-header-end a {
-            color: var(--openfs-text) !important;
-        }
-
-        /* Search bar */
-        .vector-search-box input[type="search"],
-        #searchInput {
-            background: var(--openfs-navy-mid) !important;
-            border-color: var(--openfs-border) !important;
-            color: var(--openfs-text) !important;
-            border-radius: 6px !important;
-        }
-        .vector-search-box input[type="search"]::placeholder { color: var(--openfs-muted) !important; }
+        /* ── Content area ── */
+        #mw-content-text a { color: #4f46e5 !important; }
+        #mw-content-text a:hover { color: #6366f1 !important; }
 
         /* Tabs */
-        .vector-tab-noicon.selected a,
-        .selected a {
-            color: var(--openfs-accent) !important;
-            border-bottom: 2px solid var(--openfs-accent) !important;
+        .vector-tab-noicon.selected > a {
+            color: #6366f1 !important;
+            border-bottom: 2px solid #6366f1 !important;
         }
 
-        /* Content links */
-        #mw-content-text a {
-            color: var(--openfs-accent-dim) !important;
+        /* Footer */
+        .mw-footer {
+            background-color: #0f172a !important;
+            border-top: 1px solid #334155 !important;
+            color: #64748b !important;
         }
-        #mw-content-text a:hover {
-            color: var(--openfs-accent) !important;
-        }
+        .mw-footer a { color: #64748b !important; }
 
         /* Page title */
         .mw-page-title-main {
