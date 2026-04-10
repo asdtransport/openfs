@@ -164,6 +164,11 @@ wfLoadSkin( 'MonoBook' );
 wfLoadSkin( 'Timeless' );
 wfLoadSkin( 'Vector' );
 
+# ── Vector 2022: pin sidebar open by default ──────────────────────────────────
+$wgVectorDefaultSidebarVisibleForAuthorisedUser = true;
+$wgVectorDefaultSidebarVisibleForAnon = true;
+$wgDefaultUserOptions['vector-sidebarvisible'] = 1;
+
 # ── Site identity ─────────────────────────────────────────────────────────────
 $wgSitename = "Derek Davis";
 $wgMetaNamespace = "Derek_Davis";
@@ -192,45 +197,53 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
             --openfs-border:     #334155;
         }
 
-        /* Sidebar */
+        /* ── Sidebar: pinned, dark navy ── */
+        .vector-column-start,
         .mw-sidebar,
         .vector-sidebar,
-        #mw-sidebar-checkbox ~ .mw-sidebar,
-        .mw-table-of-contents-container,
         .vector-sidebar-container,
-        .vector-sidebar-container-no-toc {
+        .vector-sidebar-container-no-toc,
+        #mw-sidebar-checkbox ~ .mw-sidebar {
             background: var(--openfs-navy) !important;
-            border-color: var(--openfs-border) !important;
+            border-right: 1px solid var(--openfs-border) !important;
+            min-height: 100vh !important;
         }
 
         /* Sidebar portal headings */
+        .vector-menu-portal > .vector-menu-heading button,
         .vector-menu-portal > .vector-menu-heading,
-        .mw-portlet > h3,
-        .mw-portlet-label {
+        .mw-portlet-label,
+        .vector-pinned-container .vector-menu-heading {
             color: var(--openfs-muted) !important;
-            font-size: 0.7rem !important;
-            font-weight: 600 !important;
-            letter-spacing: 0.08em !important;
+            font-size: 0.68rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.1em !important;
             text-transform: uppercase !important;
             border-bottom: 1px solid var(--openfs-border) !important;
             padding-bottom: 4px !important;
+            background: transparent !important;
         }
 
-        /* Sidebar nav links */
+        /* Sidebar nav links — explicit dark bg so they are always visible */
+        .vector-menu-portal .vector-menu-content-list a,
         .vector-menu-portal .vector-menu-content a,
         .mw-portlet .mw-portlet-body a,
-        #p-navigation a, #p-tb a, #p-cactions a {
-            color: var(--openfs-text) !important;
+        .vector-pinned-container a,
+        #p-navigation a,
+        #p-tb a {
+            color: #e2e8f0 !important;
             font-size: 0.875rem !important;
+            font-family: system-ui, -apple-system, sans-serif !important;
         }
+        .vector-menu-portal .vector-menu-content-list a:hover,
         .vector-menu-portal .vector-menu-content a:hover,
-        .mw-portlet .mw-portlet-body a:hover {
+        .vector-pinned-container a:hover {
             color: #a5b4fc !important;
             text-decoration: none !important;
         }
 
-        /* Logo area background */
-        .mw-logo, .vector-header-start {
+        /* Logo area */
+        .mw-logo, .vector-header-start, .vector-header-logo-tagline-wrapper {
             background: var(--openfs-navy) !important;
         }
 
@@ -242,10 +255,12 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
             border-bottom: 1px solid var(--openfs-border) !important;
         }
 
-        /* Header links (user menu, etc.) */
+        /* Header text and links */
         .vector-user-menu .vector-menu-content a,
+        .vector-user-menu-popup a,
         #p-personal a,
-        .vector-header a {
+        .vector-header a,
+        .vector-header-end a {
             color: var(--openfs-text) !important;
         }
 
@@ -257,22 +272,16 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
             color: var(--openfs-text) !important;
             border-radius: 6px !important;
         }
-        .vector-search-box input[type="search"]::placeholder {
-            color: var(--openfs-muted) !important;
-        }
+        .vector-search-box input[type="search"]::placeholder { color: var(--openfs-muted) !important; }
 
-        /* Tabs (edit, view, history) */
-        .vector-page-toolbar,
-        .mw-portlet-views {
-            border-bottom: 1px solid #e2e8f0 !important;
-        }
+        /* Tabs */
         .vector-tab-noicon.selected a,
         .selected a {
             color: var(--openfs-accent) !important;
             border-bottom: 2px solid var(--openfs-accent) !important;
         }
 
-        /* Accent on links in content */
+        /* Content links */
         #mw-content-text a {
             color: var(--openfs-accent-dim) !important;
         }
