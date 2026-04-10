@@ -71,66 +71,25 @@ echo "  ✓ Bucket ready"
 # ── 2. Start ChromaDB ───────────────────────────────────────
 export ANONYMIZED_TELEMETRY=false
 
-# Patch chromadb to handle missing _type in collection configuration
-# (JS client chromadb@3.x sends getOrCreateCollection without _type field)
-# Replaces ALL occurrences of json_map['_type'] — including the one inside
-# the error message f-string on line 209 which also throws KeyError.
-echo "▶ Patching ChromaDB configuration..."
-python3 -c "
-import chromadb.api.configuration as cfg
-import inspect, re
-
-src_file = inspect.getfile(cfg)
-with open(src_file, 'r') as f:
-    src = f.read()
-
-orig = src
-
-# Step 1: Fix KeyError — replace dict key access with .get()
-src = src.replace(\"json_map['_type']\", \"json_map.get('_type', cls.__name__)\")
-
-# Step 2: Skip the type mismatch check entirely — JS client and Python server
-# use different internal type names across versions; just skip validation
-src = re.sub(
-    r\"if json_map\.get\('_type', cls\.__name__\) != cls\.__name__:\",
-    \"if False:  # patched: skip cross-version _type mismatch check\",
-    src
-)
-
-if src != orig:
-    with open(src_file, 'w') as f:
-        f.write(src)
-    print('  ✓ Patched configuration.py — KeyError fix + type check disabled')
-else:
-    print('  ✓ configuration.py already patched')
-" 2>&1 || echo "  ⚠ Could not patch chromadb"
-
-# Pre-create collections via PersistentClient
-echo "▶ Pre-creating ChromaDB collections..."
-python3 -c "
-import chromadb
-client = chromadb.PersistentClient(path='/data/chroma')
-client.get_or_create_collection('openfs-knowledge')
-client.get_or_create_collection('openfs-docs')
-print('  ✓ ChromaDB collections pre-created')
-" 2>&1 || echo "  ⚠ Could not pre-create collections"
-
 echo "▶ Starting ChromaDB on :8000..."
-python3 -m chromadb.cli.cli run \
-  --host 0.0.0.0 \
-  --port 8000 \
-  --path /data/chroma &
+# chromadb 1.x uses 'chroma run' entry point; fall back to python module for older versions
+if command -v chroma > /dev/null 2>&1; then
+  chroma run --host 0.0.0.0 --port 8000 --path /data/chroma &
+else
+  python3 -m chromadb.cli.cli run --host 0.0.0.0 --port 8000 --path /data/chroma &
+fi
 CHROMA_PID=$!
 
-# Wait for ChromaDB
+# Wait for ChromaDB — try both v1 and v2 heartbeat paths
 echo "  Waiting for ChromaDB..."
-for i in $(seq 1 30); do
-  if curl -sf http://localhost:8000/api/v1/heartbeat > /dev/null 2>&1; then
+for i in $(seq 1 60); do
+  if curl -sf http://localhost:8000/api/v1/heartbeat > /dev/null 2>&1 || \
+     curl -sf http://localhost:8000/api/v2/heartbeat > /dev/null 2>&1; then
     echo "  ✓ ChromaDB ready"
     break
   fi
-  if [ $i -eq 30 ]; then
-    echo "  ⚠ ChromaDB did not respond in 30s — continuing anyway"
+  if [ $i -eq 60 ]; then
+    echo "  ⚠ ChromaDB did not respond in 60s — continuing anyway"
   fi
   sleep 1
 done

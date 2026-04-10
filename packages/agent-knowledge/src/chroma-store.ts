@@ -51,11 +51,8 @@ export class ChromaStore {
 
   constructor(opts: ChromaStoreOptions = {}) {
     this.collectionName = opts.collection ?? "openfs-knowledge";
-    const url = new URL(opts.chromaUrl ?? "http://localhost:8000");
-    this.client = new ChromaClient({
-      host: url.hostname,
-      port: parseInt(url.port, 10) || 8000,
-    });
+    const chromaUrl = opts.chromaUrl ?? "http://localhost:8000";
+    this.client = new ChromaClient({ path: chromaUrl } as any);
 
     // Prefer OPENROUTER_API_KEY → explicit key → OPENAI_API_KEY
     const openRouterKey = process.env.OPENROUTER_API_KEY;
@@ -208,18 +205,24 @@ export class ChromaStore {
     return await this.collection.count();
   }
 
-  /** Delete and recreate the collection, wiping all vectors. */
+  /** Wipe all vectors by deleting every chunk ID — avoids collection delete/recreate API issues. */
   async reset(): Promise<void> {
+    if (!this.collection) await this.init();
     try {
-      await this.client.deleteCollection({ name: this.collectionName });
-      console.log(`[chroma-store] deleted collection "${this.collectionName}"`);
+      const all = await this.collection.get({ include: [] as any });
+      const ids: string[] = Array.isArray(all.ids) ? all.ids : [];
+      if (ids.length > 0) {
+        const BATCH = 500;
+        for (let i = 0; i < ids.length; i += BATCH) {
+          await this.collection.delete({ ids: ids.slice(i, i + BATCH) });
+        }
+        console.log(`[chroma-store] deleted ${ids.length} chunks from "${this.collectionName}"`);
+      } else {
+        console.log(`[chroma-store] collection "${this.collectionName}" already empty`);
+      }
     } catch (e) {
-      console.warn(`[chroma-store] deleteCollection failed (may not exist): ${e}`);
+      console.warn(`[chroma-store] reset failed, continuing anyway: ${e}`);
     }
-    // Clear cached collection so init() recreates it with the safe getOrCreateCollection pattern
-    this.collection = null;
-    await this.init();
-    console.log(`[chroma-store] collection "${this.collectionName}" ready for fresh embed`);
   }
 
   /** List all collections with their chunk counts. */
