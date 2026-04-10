@@ -212,20 +212,25 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
         }
         .vector-search-box .cdx-text-input__input::placeholder { color: #64748b !important; }
 
-        /* ── Sidebar: nuke background on every possible container ── */
-        html body .vector-column-start,
+        /* ── Sidebar containers — only the actual nav elements, not the column wrapper ── */
         html body .vector-main-menu-container,
         html body #vector-main-menu-pinned-container,
         html body #vector-main-menu,
         html body .vector-main-menu,
         html body #mw-panel,
         html body .mw-panel,
-        html body .vector-column-start *,
-        html body #vector-main-menu * {
+        html body .vector-menu-portal,
+        html body .mw-portlet-navigation,
+        html body .vector-column-start .mw-portlet,
+        html body .vector-column-start nav,
+        html body .vector-column-start .mw-portlet-body,
+        html body .vector-column-start .vector-menu-content,
+        html body .vector-column-start ul,
+        html body .vector-column-start li {
             background-color: #0f172a !important;
         }
 
-        /* Section headings — override the * above with correct styles */
+        /* Section headings */
         html body .vector-column-start h3,
         html body .vector-column-start .mw-portlet-heading,
         html body .vector-column-start .mw-portlet-heading button,
@@ -235,6 +240,7 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
         html body #vector-main-menu .mw-portlet-heading button,
         html body #vector-main-menu .mw-portlet-heading span,
         html body #mw-panel h3 {
+            background-color: #0f172a !important;
             color: #64748b !important;
             font-size: 0.68rem !important;
             font-weight: 700 !important;
