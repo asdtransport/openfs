@@ -356,13 +356,17 @@ app.all("/mw/*", async (c) => {
   try {
     const headers = new Headers();
     for (const [key, value] of Object.entries(c.req.header())) {
-      if (key.toLowerCase() !== "host" && key.toLowerCase() !== "content-length" && value) {
-        headers.set(key, value);
-      }
+      // Drop hop-by-hop headers; content-length is recalculated below
+      if (["host", "content-length", "transfer-encoding"].includes(key.toLowerCase())) continue;
+      if (value) headers.set(key, value);
     }
     const fetchOpts: RequestInit = { method: c.req.method, headers };
     if (c.req.method !== "GET" && c.req.method !== "HEAD") {
-      fetchOpts.body = await c.req.raw.text();
+      const body = await c.req.raw.text();
+      fetchOpts.body = body;
+      // PHP built-in server needs Content-Length to read the full POST body.
+      // Without it, wpLoginToken is missing and MW throws "session hijacking".
+      headers.set("content-length", new TextEncoder().encode(body).length.toString());
     }
     const upstream = await fetch(targetUrl, fetchOpts);
     const responseHeaders = new Headers();
