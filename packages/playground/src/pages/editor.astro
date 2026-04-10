@@ -330,7 +330,17 @@ import AppShell from '../components/AppShell.astro';
     setStatus('loading…', '');
     try {
       const d = await apiFetch('/cat?path=' + encodeURIComponent(path));
-      const content = d.content ?? '';
+      const raw = d.content ?? '';
+      // Convert MediaWiki wikitext headings → markdown so the editor renders them properly
+      const content = raw
+        .replace(/^======\s*(.+?)\s*======\s*$/gm, '###### $1')
+        .replace(/^=====\s*(.+?)\s*=====\s*$/gm, '##### $1')
+        .replace(/^====\s*(.+?)\s*====\s*$/gm, '#### $1')
+        .replace(/^===\s*(.+?)\s*===\s*$/gm, '### $1')
+        .replace(/^==\s*(.+?)\s*==\s*$/gm, '## $1')
+        .replace(/^=\s*(.+?)\s*=\s*$/gm, '# $1')
+        .replace(/'''(.+?)'''/g, '**$1**')   // bold
+        .replace(/''(.+?)''/g, '*$1*');        // italic
       // Use low-level CodeMirror API — more reliable than easyMDE.value()
       suppressChange = true;
       easyMDE.codemirror.setValue(content);

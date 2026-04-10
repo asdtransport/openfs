@@ -632,6 +632,9 @@ import PortalShell from '../../components/PortalShell.astro';
       const cols = await res.json();
       const sel = document.getElementById('sel-collection');
       sel.innerHTML = cols.map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${c.count})</option>`).join('');
+      // Prefer openfs-knowledge as default (most content)
+      const preferred = cols.find(c => c.name === 'openfs-knowledge');
+      if (preferred) sel.value = 'openfs-knowledge';
       await loadTopics();
     } catch (e) {
       document.getElementById('sel-collection').innerHTML = '<option value="openfs-knowledge">openfs-knowledge</option>';

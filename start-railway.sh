@@ -41,6 +41,11 @@ export CHROMA_URL="${CHROMA_URL:-http://localhost:8000}"
 
 # ── 1. Start MinIO ──────────────────────────────────────────
 echo "▶ Starting MinIO on :9000..."
+# MINIO_BROWSER_REDIRECT_URL tells MinIO console its public URL so auth/CSRF works
+# correctly behind a reverse proxy. Without this, bucket listing returns "Access Denied".
+if [ -n "$RAILWAY_PUBLIC_DOMAIN" ]; then
+  export MINIO_BROWSER_REDIRECT_URL="https://${RAILWAY_PUBLIC_DOMAIN}/minio"
+fi
 minio server /data/minio --address ":9000" --console-address ":9001" &
 MINIO_PID=$!
 

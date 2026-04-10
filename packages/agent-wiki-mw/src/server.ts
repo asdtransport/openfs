@@ -906,7 +906,7 @@ Bun.serve({
       // ── 1. Always run grep + semantic in parallel ──
       const [grepPathsRaw, semanticResultsRaw] = await Promise.all([
         (sync as any).wiki.agentFs.search(grepQuery).catch(() => []),
-        chromaStore.init().then(() => chromaStore.semanticSearch(question, { topK: 8, minScore: 0.25 })).catch(() => []),
+        chromaStore.init().then(() => chromaStore.semanticSearch(question, { topK: 8, minScore: 0.25 })).catch((e: any) => { log(`[query] semantic search error: ${e.message}`); return []; }),
       ]);
       const grepPaths = grepPathsRaw as string[];
       const semanticResults = semanticResultsRaw as any[];
@@ -1090,16 +1090,32 @@ Bun.serve({
           await store.init();
           const pages = await (sync as any).wiki.pages();
           let chunksStored = 0;
+          const embedErrors: string[] = [];
           for (const page of pages) {
             try {
-              const content = await (sync as any).wiki.agentFs.read(page.path);
-              if (!content?.trim()) continue;
+              const raw = await (sync as any).wiki.agentFs.read(page.path);
+              if (!raw?.trim()) continue;
+              // Strip wikitext markup so embeddings reflect actual content, not markup noise
+              const content = raw
+                .replace(/^={1,6}\s*(.+?)\s*={1,6}\s*$/gm, '$1') // =Heading= → Heading
+                .replace(/'''(.+?)'''/g, '$1')                     // bold
+                .replace(/''(.+?)''/g, '$1')                       // italic
+                .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, '$2||$1') // [[Link|Text]] → Text
+                .replace(/\[https?:\/\/\S+\s+([^\]]+)\]/g, '$1')  // [url text] → text
+                .replace(/\{\{[^}]+\}\}/g, '')                     // {{templates}}
+                .replace(/<[^>]+>/g, '')                           // <html tags>
+                .replace(/\n{3,}/g, '\n\n')                        // excess blank lines
+                .trim();
               const chunks = chunkDocument(page.path, page.title, content, { chunkSize: 1200, overlap: 200 }).map((c: any) => ({ ...c, topic: "wiki" }));
               await store.upsertChunks(chunks);
               chunksStored += chunks.length;
-            } catch {}
+            } catch (e: any) {
+              embedErrors.push(`${page.path}: ${e.message}`);
+              log(`[embed_wiki] error embedding ${page.path}: ${e.message}`);
+            }
           }
-          return `Embedded ${pages.length} pages, ${chunksStored} chunks into openfs-knowledge.`;
+          const errMsg = embedErrors.length ? ` (${embedErrors.length} errors: ${embedErrors.slice(0,3).join('; ')})` : '';
+          return `Embedded ${pages.length} pages, ${chunksStored} chunks into openfs-knowledge.${errMsg}`;
         }
         if (name === "push_page") {
           try {
@@ -1403,34 +1419,48 @@ Never answer from memory alone. Cite sources by path.`,
     // POST /kg-ingest-wiki — embed all current OpenFS wiki pages into Chroma
     if (url.pathname === "/kg-ingest-wiki" && req.method === "POST") {
       if (!sync) return json({ error: "not ready" }, 503);
-      const { collection, topic } = (req.headers.get("content-length") !== "0" ? await req.json().catch(() => ({})) : {}) as any;
+      try {
+        const { collection, topic } = (req.headers.get("content-length") !== "0" ? await req.json().catch(() => ({})) : {}) as any;
 
-      const store = new ChromaStore({
-        collection: collection ?? "openfs-knowledge",
-        chromaUrl: CHROMA_URL,
-      });
-      await store.init();
+        const store = new ChromaStore({
+          collection: collection ?? "openfs-knowledge",
+          chromaUrl: CHROMA_URL,
+        });
+        // Reset collection to wipe stale vectors from previous embed runs
+        log(`[kg-ingest-wiki] resetting collection "${collection ?? "openfs-knowledge"}"…`);
+        await store.reset();
 
-      const { chunkDocument } = await import("../../agent-knowledge/src/chunker.js");
-      const pages = await (sync as any).wiki.pages();
-      let chunksStored = 0;
-      const errors: string[] = [];
+        const { chunkDocument } = await import("../../agent-knowledge/src/chunker.js");
+        const pages = await (sync as any).wiki.pages();
+        let chunksStored = 0;
+        const errors: string[] = [];
 
-      for (const page of pages) {
-        try {
-          const content = await (sync as any).wiki.agentFs.read(page.path);
-          if (!content?.trim()) continue;
-          const chunks = chunkDocument(page.path, page.title, content, { chunkSize: 1200, overlap: 200 })
-            .map((c: any) => ({ ...c, topic: topic ?? "wiki" }));
-          await store.upsertChunks(chunks);
-          chunksStored += chunks.length;
-          log(`[kg-ingest-wiki] embedded: ${page.title} (${chunks.length} chunks)`);
-        } catch (e) {
-          errors.push(`${page.path}: ${(e as Error).message}`);
+        for (const page of pages) {
+          try {
+            const raw = await (sync as any).wiki.agentFs.read(page.path);
+            if (!raw?.trim()) continue;
+            const content = raw
+              .replace(/^={1,6}\s*(.+?)\s*={1,6}\s*$/gm, '$1')
+              .replace(/'''(.+?)'''/g, '$1')
+              .replace(/''(.+?)''/g, '$1')
+              .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, '$2||$1')
+              .replace(/\[https?:\/\/\S+\s+([^\]]+)\]/g, '$1')
+              .replace(/\{\{[^}]+\}\}/g, '')
+              .replace(/<[^>]+>/g, '')
+              .replace(/\n{3,}/g, '\n\n')
+              .trim();
+            const chunks = chunkDocument(page.path, page.title, content, { chunkSize: 1200, overlap: 200 })
+              .map((c: any) => ({ ...c, topic: topic ?? "wiki" }));
+            await store.upsertChunks(chunks);
+            chunksStored += chunks.length;
+            log(`[kg-ingest-wiki] embedded: ${page.title} (${chunks.length} chunks)`);
+          } catch (e) {
+            errors.push(`${page.path}: ${(e as Error).message}`);
+          }
         }
-      }
 
-      return json({ ok: true, pagesEmbedded: pages.length, chunksStored, errors });
+        return json({ ok: true, pagesEmbedded: pages.length, chunksStored, errors });
+      } catch (e: any) { return json({ error: e.message }, 500); }
     }
 
     // POST /kg-search — semantic search across embedded corpus
@@ -2134,13 +2164,20 @@ Never answer from memory alone. Cite sources by path.`,
         const grepQuery = question.toLowerCase().replace(/[?!.,]/g,"").split(/\s+/).filter((w: string) => !STOP_PQ.has(w) && w.length > 2).join(" ") || question;
 
         // ── 1. Run grep + semantic/text in parallel ──
+        await store.init();
         const [grepPathsRaw, chromaResults] = await Promise.all([
           sync ? (sync as any).wiki.agentFs.search(grepQuery).catch(() => []) : Promise.resolve([]),
-          store.init().then(() =>
-            mode === "text"
-              ? store.textSearch(question, { topic: topic || undefined }).then((r: any[]) => r.slice(0, topK ?? 8))
-              : store.semanticSearch(question, { topK: topK ?? 8, topic: topic || undefined, minScore: 0.2 })
-          ).catch(() => []),
+          (async () => {
+            if (mode === "text") {
+              return store.textSearch(question, { topic: topic || undefined }).then((r: any[]) => r.slice(0, topK ?? 8)).catch(() => []);
+            }
+            // Semantic mode: try semantic, fall back to text search if nothing passes threshold
+            const semResults = await store.semanticSearch(question, { topK: topK ?? 8, topic: topic || undefined, minScore: 0.1 }).catch(() => []);
+            if ((semResults as any[]).length > 0) return semResults;
+            // Fallback: keyword text search using stop-word-stripped query
+            log(`[portal/query] semantic returned 0 results for "${question}", falling back to text search`);
+            return store.textSearch(grepQuery || question, { topic: topic || undefined }).then((r: any[]) => r.slice(0, topK ?? 8)).catch(() => []);
+          })(),
         ]);
         const grepPaths = grepPathsRaw as string[];
         const grepPathSet = new Set(grepPaths);
@@ -2153,7 +2190,16 @@ Never answer from memory alone. Cite sources by path.`,
         function cleanChunk(raw: string): string {
           const s = (raw || "").trim();
           if (s.startsWith("{") || s.startsWith("[")) { try { JSON.parse(s); return ""; } catch {} }
-          return s.replace(/={2,}[^=]+=+/g,"").replace(/^#+\s+.*/gm,"").replace(/\*{1,2}([^*]+)\*{1,2}/g,"$1").replace(/\s{2,}/g," ").trim();
+          return s
+            .replace(/^={1,6}\s*(.+?)\s*={1,6}\s*$/gm, "$1")  // =Heading= any level
+            .replace(/^#+\s+.*/gm, "")                          // # markdown headers
+            .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")     // [[Link|Text]] → Text
+            .replace(/\[\[([^\]]+)\]\]/g, "$1")                 // [[Link]] → Link
+            .replace(/\[\/\S+\s+([^\]]+)\]/g, "$1")            // [/wiki/file.md Text] → Text
+            .replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1")           // bold/italic
+            .replace(/\{\{[^}]+\}\}/g, "")                      // {{templates}}
+            .replace(/\s{2,}/g, " ")
+            .trim();
         }
 
         // Add grep (wiki) results first
@@ -2164,7 +2210,7 @@ Never answer from memory alone. Cite sources by path.`,
             if (!cleaned || cleaned.length < 20) continue;
             const title = p.split("/").pop()?.replace(/\.md$/,"").replace(/[-_]/g," ") ?? p;
             sources.push({ source: p, title, content: cleaned, matchType: "keyword" });
-            contextBlocks.push(`[${sources.length}] **${title}** (wiki)\n${content.slice(0, 1000)}`);
+            contextBlocks.push(`[${sources.length}] **${title}** (wiki)\n${cleaned.slice(0, 1000)}`);
           } catch {}
         }
 

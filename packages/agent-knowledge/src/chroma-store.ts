@@ -1,7 +1,8 @@
 /**
  * Chroma vector store for @openfs/agent-knowledge.
  * Uses OpenAI text-embedding-3-small via @chroma-core/openai (1536-dim, cosine).
- * Requires OPENAI_API_KEY env var.
+ * Supports OpenRouter as an OpenAI-compatible embedding backend.
+ * Requires OPENAI_API_KEY or OPENROUTER_API_KEY env var.
  */
 
 import { ChromaClient } from "chromadb";
@@ -14,11 +15,39 @@ export interface ChromaStoreOptions {
   openAiApiKey?: string;
 }
 
+/** Custom embedding function that calls OpenRouter (or any OpenAI-compatible endpoint) directly. */
+function makeOpenRouterEmbedFn(apiKey: string): { generate: (texts: string[]) => Promise<number[][]> } {
+  return {
+    async generate(texts: string[]): Promise<number[][]> {
+      console.log(`[chroma-store] OpenRouter embed: ${texts.length} text(s), key=...${apiKey.slice(-6)}`);
+      const res = await fetch("https://openrouter.ai/api/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://openfs-production.up.railway.app",
+          "X-Title": "OpenFS Knowledge Base",
+        },
+        body: JSON.stringify({ model: "openai/text-embedding-3-small", input: texts }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error(`[chroma-store] OpenRouter embed FAILED (${res.status}): ${err}`);
+        throw new Error(`OpenRouter embeddings failed (${res.status}): ${err}`);
+      }
+      const data = await res.json() as any;
+      const vecs = data.data.map((d: any) => d.embedding);
+      console.log(`[chroma-store] OpenRouter embed OK: ${vecs.length} vectors, dim=${vecs[0]?.length}`);
+      return vecs;
+    },
+  };
+}
+
 export class ChromaStore {
   private client: ChromaClient;
   private collectionName: string;
   private collection: any = null;
-  private embedFn: OpenAIEmbeddingFunction;
+  private embedFn: any;
 
   constructor(opts: ChromaStoreOptions = {}) {
     this.collectionName = opts.collection ?? "openfs-knowledge";
@@ -27,12 +56,22 @@ export class ChromaStore {
       host: url.hostname,
       port: parseInt(url.port, 10) || 8000,
     });
-    if (opts.openAiApiKey) {
-      process.env.OPENAI_API_KEY = opts.openAiApiKey;
+
+    // Prefer OPENROUTER_API_KEY → explicit key → OPENAI_API_KEY
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    const openAiKey = opts.openAiApiKey || process.env.OPENAI_API_KEY;
+
+    if (openRouterKey) {
+      console.log(`[chroma-store] using OpenRouter embeddings (key=...${openRouterKey.slice(-6)})`);
+      this.embedFn = makeOpenRouterEmbedFn(openRouterKey);
+    } else if (openAiKey) {
+      console.log(`[chroma-store] using OpenAI embeddings (key=...${openAiKey.slice(-6)})`);
+      process.env.OPENAI_API_KEY = openAiKey;
+      this.embedFn = new OpenAIEmbeddingFunction({ modelName: "text-embedding-3-small" });
+    } else {
+      console.warn(`[chroma-store] WARNING: no API key set — embeddings will fail`);
+      this.embedFn = new OpenAIEmbeddingFunction({ modelName: "text-embedding-3-small" });
     }
-    this.embedFn = new OpenAIEmbeddingFunction({
-      modelName: "text-embedding-3-small",
-    });
   }
 
   async init(): Promise<void> {
@@ -57,12 +96,26 @@ export class ChromaStore {
     if (!this.collection) await this.init();
     if (chunks.length === 0) return;
 
-    const BATCH = 100;
-    for (let i = 0; i < chunks.length; i += BATCH) {
-      const batch = chunks.slice(i, i + BATCH);
+    // Generate embeddings ourselves in controlled batches of 20.
+    // Passing embeddings explicitly to collection.upsert() bypasses ChromaDB's
+    // internal batching (which calls our fn with ~2 texts at a time, causing
+    // partial failures under rate limits that leave stale vectors in place).
+    const EMBED_BATCH = 20;
+    const UPSERT_BATCH = 100;
+
+    const allEmbeddings: number[][] = [];
+    for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
+      const texts = chunks.slice(i, i + EMBED_BATCH).map((c: Chunk) => c.content);
+      const vecs = await this.embedFn.generate(texts);
+      allEmbeddings.push(...vecs);
+    }
+
+    for (let i = 0; i < chunks.length; i += UPSERT_BATCH) {
+      const batch = chunks.slice(i, i + UPSERT_BATCH);
       await this.collection.upsert({
         ids: batch.map((c: Chunk) => c.id),
         documents: batch.map((c: Chunk) => c.content),
+        embeddings: allEmbeddings.slice(i, i + UPSERT_BATCH),
         metadatas: batch.map((c: Chunk) => ({
           source: c.source,
           title: c.title,
@@ -153,6 +206,20 @@ export class ChromaStore {
   async count(): Promise<number> {
     if (!this.collection) await this.init();
     return await this.collection.count();
+  }
+
+  /** Delete and recreate the collection, wiping all vectors. */
+  async reset(): Promise<void> {
+    try {
+      await this.client.deleteCollection({ name: this.collectionName });
+      console.log(`[chroma-store] deleted collection "${this.collectionName}"`);
+    } catch (e) {
+      console.warn(`[chroma-store] deleteCollection failed (may not exist): ${e}`);
+    }
+    // Clear cached collection so init() recreates it with the safe getOrCreateCollection pattern
+    this.collection = null;
+    await this.init();
+    console.log(`[chroma-store] collection "${this.collectionName}" ready for fresh embed`);
   }
 
   /** List all collections with their chunk counts. */

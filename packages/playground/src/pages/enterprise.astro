@@ -454,7 +454,10 @@ import AppShell from '../components/AppShell.astro';
       document.getElementById('map-ofs').textContent = d.summary.ofsOnly;
       document.getElementById('map-mw').textContent = d.summary.mwOnly;
       document.getElementById('map-linked-list').innerHTML = d.linked.length
-        ? d.linked.map(l=>`<div class="list-item"><span class="list-title">${l.openfsTitle}</span><span class="list-meta">&#8596;</span><a href="${l.mwUrl}" target="_blank" class="tbl-link" style="font-size:0.78rem">${l.mwTitle}</a></div>`).join('')
+        ? d.linked.map(l=>{
+            const editorUrl = `/editor?title=${encodeURIComponent(l.openfsTitle)}`;
+            return `<div class="list-item"><a href="${editorUrl}" class="list-title tbl-link">${l.openfsTitle}</a><span class="list-meta">&#8596;</span><a href="${l.mwUrl}" target="_blank" class="tbl-link" style="font-size:0.78rem">${l.mwTitle}</a></div>`;
+          }).join('')
         : '<div class="empty">None linked</div>';
       document.getElementById('map-mw-list').innerHTML = d.mwOnly.length
         ? d.mwOnly.map(t=>`<div class="list-item"><span class="list-title">${t}</span><a href="${MW}/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}" target="_blank" class="btn btn-outline btn-sm">View</a><button class="btn btn-outline btn-sm" onclick="resynth('${t.replace(/'/g,"\\'")}')">Synthesize</button></div>`).join('')
@@ -544,7 +547,12 @@ import AppShell from '../components/AppShell.astro';
 
   function buildCitations(citations) {
     if (!citations?.length) return '';
-    const cards = citations.slice(0, 6).map(c => {
+    // Sort: wiki pages first (they're most useful), then S3 sources, then entity/cluster files
+    const sorted = [...citations].sort((a, b) => {
+      const rank = c => (c.path||'').startsWith('/wiki/') ? 0 : (c.source && !c.source.startsWith('/')) ? 1 : 2;
+      return rank(a) - rank(b);
+    });
+    const cards = sorted.slice(0, 8).map(c => {
       const label = (c.title || c.path || c.source || '').replace(/^\/wiki\//,'').replace(/\.md$/,'').replace(/[-_]/g,' ');
       const matchBadge = c.matchType === 'keyword+semantic' ? `<span class="cite-badge cite-badge-both">keyword+semantic</span>`
         : c.matchType === 'keyword' ? `<span class="cite-badge cite-badge-kw">keyword</span>`
@@ -553,24 +561,23 @@ import AppShell from '../components/AppShell.astro';
       const srcPath = c.source || c.path || '';
       const srcLabel = srcPath ? srcPath.split('/').slice(-2).join('/') : '';
       const src = srcLabel ? `<span class="cite-src">${srcLabel}</span>` : '';
-      // Clean any residual markup in excerpt (server already cleans, this is a safety net)
       const rawExcerpt = (c.excerpt || '')
         .replace(/={2,}[^=]+=+/g,'').replace(/^#+\s+/gm,'')
         .replace(/\[\/[^\]]+\s([^\]]+)\]/g,'$1').replace(/\s{2,}/g,' ').trim();
       const excerpt = rawExcerpt.length > 10 ? `<div class="cite-excerpt">${esc(rawExcerpt.slice(0,130))}…</div>` : '';
 
-      // Build href: wiki path → MW url, S3 source → nothing (open editor), fallback to MW search
+      // Build href: wiki path → MW wiki page, S3 source → editor, entity/cluster → MW wiki search
       let href = '#';
+      const mwLabel = label.replace(/\b\w/g, ch => ch.toUpperCase()).replace(/ /g, '_');
       if (c.path && c.path.startsWith('/wiki/')) {
-        const mwTitle = encodeURIComponent(label.replace(/\b\w/g,ch=>ch.toUpperCase()).replace(/ /g,'_'));
-        href = `${MW}/wiki/${mwTitle}`;
-      } else if (c.source && !c.source.startsWith('/')) {
-        // S3 source file — open editor with the title loaded
+        href = `${MW}/wiki/${encodeURIComponent(mwLabel)}`;
+      } else if (c.source && !c.source.startsWith('/') && !c.source.startsWith('s3/')) {
         href = `/editor?title=${encodeURIComponent(label)}`;
+      } else {
+        // Entity/cluster or S3 path — link to MW wiki search so user can find related pages
+        href = `${MW}/wiki/Special:Search?search=${encodeURIComponent(label)}`;
       }
-      const tag = href !== '#' ? 'a' : 'div';
-      const attrs = href !== '#' ? `href="${href}" target="${href.startsWith(MW)?'_blank':'_self'}" rel="noopener"` : '';
-      return `<${tag} class="cite-card" ${attrs}>${matchBadge}${score}<span class="cite-title">${esc(label)}</span>${src}${excerpt}</${tag}>`;
+      return `<a class="cite-card" href="${href}" target="_blank" rel="noopener">${matchBadge}${score}<span class="cite-title">${esc(label)}</span>${src}${excerpt}</a>`;
     }).join('');
     return `<div class="cite-grid">${cards}</div>`;
   }

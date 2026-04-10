@@ -1039,7 +1039,7 @@ async function ingest(bucket: string, prefix: string, topic?: string, chunkSize 
       ...(data.wikiPagesCreated || []),
       ...(data.wikiPagesUpdated || []),
     ].map((p: string) =>
-      `<a href="/sync/wiki/${encodeURIComponent(p.split('/').pop()?.replace(/\.md$/,'').replace(/-/g,' ') ?? p)}" target="_blank">${p}</a>`
+      `<a href="/mw/wiki/${encodeURIComponent(p.split('/').pop()?.replace(/\.md$/,'').replace(/-/g,' ') ?? p)}" target="_blank">${p}</a>`
     ).join(', ');
 
     resultEl.className = 'ingest-result ok';
@@ -1306,7 +1306,7 @@ async function ingestNormalized() {
       ...(data.wikiPagesUpdated || []),
     ].map((p: string) => {
       const name = p.split('/').pop()?.replace(/\.md$/, '').replace(/-/g, ' ') ?? p;
-      return `<a href="/sync/wiki/${encodeURIComponent(name)}" target="_blank">${name}</a>`;
+      return `<a href="/mw/wiki/${encodeURIComponent(name)}" target="_blank">${name}</a>`;
     }).join(', ');
     resultEl.className = 'norm-ingest-result ok';
     resultEl.innerHTML = `✓ ${data.chunksStored} chunks · ${data.entitiesExtracted ?? 0} entities` +

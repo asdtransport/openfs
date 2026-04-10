@@ -468,10 +468,14 @@ export default {
     const url = new URL(req.url);
 
     // WebSocket upgrade for MinIO console
+    // Forward cookie + auth so MinIO's /ws/objectManager accepts the connection.
     if (req.headers.get("upgrade")?.toLowerCase() === "websocket" && url.pathname.startsWith("/minio/")) {
       const wsPath = url.pathname.replace(/^\/minio/, "") || "/";
       const upstreamUrl = `${MINIO_CONSOLE_WS}${wsPath}${url.search}`;
-      const upgraded = server.upgrade(req, { data: { upstreamUrl, upstream: null as WebSocket | null } });
+      const cookie   = req.headers.get("cookie") || "";
+      const auth     = req.headers.get("authorization") || "";
+      const protocol = req.headers.get("sec-websocket-protocol") || "";
+      const upgraded = server.upgrade(req, { data: { upstreamUrl, upstream: null as WebSocket | null, cookie, auth, protocol } });
       if (upgraded) return;
     }
 
@@ -479,9 +483,13 @@ export default {
   },
   websocket: {
     open(ws: any) {
-      const { upstreamUrl } = ws.data;
+      const { upstreamUrl, cookie, auth, protocol } = ws.data;
       try {
-        const upstream = new WebSocket(upstreamUrl);
+        const upstreamHeaders: Record<string, string> = {};
+        if (cookie)   upstreamHeaders["Cookie"] = cookie;
+        if (auth)     upstreamHeaders["Authorization"] = auth;
+        if (protocol) upstreamHeaders["Sec-WebSocket-Protocol"] = protocol;
+        const upstream = new WebSocket(upstreamUrl, { headers: upstreamHeaders } as any);
         ws.data.upstream = upstream;
         upstream.onopen = () => {};
         upstream.onmessage = (e: MessageEvent) => {

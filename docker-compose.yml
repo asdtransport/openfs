@@ -100,6 +100,8 @@ services:
         condition: service_completed_successfully
       adapter-s3-api:
         condition: service_healthy
+      agent-wiki-mw:
+        condition: service_started
     ports:
       - "3456:3456"
     environment:
@@ -109,8 +111,10 @@ services:
       - S3_SECRET_KEY=minioadmin
       - S3_BUCKET=openfs-playground
       - MINIO_API_URL=http://adapter-s3-api:8080
-      - NO_PROXY=chroma,minio,adapter-s3-api,localhost,127.0.0.1
-      - no_proxy=chroma,minio,adapter-s3-api,localhost,127.0.0.1
+      - MINIO_CONSOLE_URL=http://minio:9001
+      - SYNC_URL=http://openfs-agent-wiki-mw:4322
+      - NO_PROXY=chroma,minio,adapter-s3-api,openfs-agent-wiki-mw,localhost,127.0.0.1
+      - no_proxy=chroma,minio,adapter-s3-api,openfs-agent-wiki-mw,localhost,127.0.0.1
       - PORT=3456
     volumes:
       - ./:/app
