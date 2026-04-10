@@ -212,44 +212,39 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
         }
         .vector-search-box .cdx-text-input__input::placeholder { color: #64748b !important; }
 
-        /* ── Sidebar: every container Vector 2022 might use ── */
-        .vector-column-start,
-        .vector-main-menu-container,
-        #vector-main-menu-pinned-container,
-        #vector-main-menu,
-        .vector-main-menu,
-        #mw-panel,
-        .mw-panel {
+        /* ── Sidebar: nuke background on every possible container ── */
+        html body .vector-column-start,
+        html body .vector-main-menu-container,
+        html body #vector-main-menu-pinned-container,
+        html body #vector-main-menu,
+        html body .vector-main-menu,
+        html body #mw-panel,
+        html body .mw-panel,
+        html body .vector-column-start *,
+        html body #vector-main-menu * {
             background-color: #0f172a !important;
         }
 
-        /* Sidebar portlet wrappers */
-        html body .vector-column-start .mw-portlet,
-        html body .vector-column-start .vector-menu-portal,
-        html body #vector-main-menu .mw-portlet,
-        html body #vector-main-menu .vector-menu-portal,
-        html body #mw-panel .mw-portlet {
-            background-color: #0f172a !important;
-        }
-
-        /* Section headings (ARTIFACTS, BOOKS, etc.) */
+        /* Section headings — override the * above with correct styles */
         html body .vector-column-start h3,
         html body .vector-column-start .mw-portlet-heading,
         html body .vector-column-start .mw-portlet-heading button,
+        html body .vector-column-start .mw-portlet-heading span,
         html body #vector-main-menu h3,
+        html body #vector-main-menu .mw-portlet-heading,
         html body #vector-main-menu .mw-portlet-heading button,
+        html body #vector-main-menu .mw-portlet-heading span,
         html body #mw-panel h3 {
-            color: #94a3b8 !important;
-            background-color: transparent !important;
+            color: #64748b !important;
             font-size: 0.68rem !important;
             font-weight: 700 !important;
             letter-spacing: 0.1em !important;
             text-transform: uppercase !important;
-            border-bottom: 1px solid #334155 !important;
+            border-bottom: 1px solid #1e3a5f !important;
             padding-bottom: 4px !important;
         }
 
-        /* Nav links — needs html body prefix to beat skin specificity */
+        /* Nav links */
         html body .vector-column-start a,
         html body .vector-column-start li a,
         html body #vector-main-menu a,
@@ -257,7 +252,7 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
         html body #mw-panel a,
         html body .vector-menu-portal a,
         html body .mw-portlet-navigation a {
-            color: #cbd5e1 !important;
+            color: #e2e8f0 !important;
             font-size: 0.875rem !important;
         }
         html body .vector-column-start a:hover,
@@ -266,6 +261,26 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
             color: #a5b4fc !important;
             text-decoration: none !important;
         }
+
+        /* ── Table of contents (TOC) — keep readable on dark bg ── */
+        html body .vector-toc,
+        html body .vector-toc-container,
+        html body #vector-toc-pinned-container {
+            background-color: #1e293b !important;
+            border: 1px solid #334155 !important;
+            border-radius: 6px !important;
+        }
+        html body .vector-toc a,
+        html body .vector-toc .vector-toc-link {
+            color: #94a3b8 !important;
+        }
+        html body .vector-toc a:hover,
+        html body .vector-toc .vector-toc-link:hover {
+            color: #a5b4fc !important;
+        }
+        html body .vector-toc .vector-toc-text { color: #e2e8f0 !important; }
+        html body .vector-toc-heading { color: #64748b !important; font-size: 0.68rem !important; letter-spacing: 0.1em !important; text-transform: uppercase !important; }
+        html body .vector-toc-toggle { color: #64748b !important; }
 
         /* ── Content area ── */
         #mw-content-text a { color: #4f46e5 !important; }
