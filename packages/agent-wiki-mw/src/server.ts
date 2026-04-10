@@ -2172,7 +2172,7 @@ Never answer from memory alone. Cite sources by path.`,
               return store.textSearch(question, { topic: topic || undefined }).then((r: any[]) => r.slice(0, topK ?? 8)).catch(() => []);
             }
             // Semantic mode: try semantic, fall back to text search if nothing passes threshold
-            const semResults = await store.semanticSearch(question, { topK: topK ?? 8, topic: topic || undefined, minScore: 0.1 }).catch(() => []);
+            const semResults = await store.semanticSearch(question, { topK: topK ?? 8, topic: topic || undefined, minScore: 0.3 }).catch(() => []);
             if ((semResults as any[]).length > 0) return semResults;
             // Fallback: keyword text search using stop-word-stripped query
             log(`[portal/query] semantic returned 0 results for "${question}", falling back to text search`);
