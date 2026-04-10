@@ -143,9 +143,11 @@ COPY --from=playground-builder /app/packages/playground/dist /app/playground-dis
 # Copy adapter-s3-api Python source
 COPY packages/adapter-s3-api/ /app/packages/adapter-s3-api/
 
-# Copy MediaWiki source from official image + overlay our config
+# Copy MediaWiki source from official image + overlay our config and branding
 COPY --from=mediawiki-src /var/www/html /app/packages/mediawiki
 COPY packages/mediawiki/LocalSettings.php /app/packages/mediawiki/LocalSettings.php
+COPY packages/mediawiki/openfs-icon.svg /app/packages/mediawiki/openfs-icon.svg
+COPY packages/mediawiki/openfs-wordmark.svg /app/packages/mediawiki/openfs-wordmark.svg
 
 # Create persistent data directories
 RUN mkdir -p /data /data/minio /data/chroma /data/mediawiki

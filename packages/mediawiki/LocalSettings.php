@@ -155,9 +155,8 @@ $wgRightsIcon = "";
 # Path to the GNU diff3 utility. Used for conflict resolution.
 $wgDiff3 = "";
 
-## Default skin: you can change the default skin. Use the internal symbolic
-## names, e.g. 'vector' or 'monobook':
-$wgDefaultSkin = "monobook";
+## Default skin: Vector 2022 (modern, matches OpenFS enterprise theme)
+$wgDefaultSkin = "vector-2022";
 
 # Enabled skins.
 wfLoadSkin( 'MinervaNeue' );
@@ -169,14 +168,138 @@ wfLoadSkin( 'Vector' );
 $wgSitename = "Derek Davis";
 $wgMetaNamespace = "Derek_Davis";
 $wgLogos = [
-    '1x' => "$wgResourceBasePath/resources/assets/change-your-logo.svg",
-    'icon' => "$wgResourceBasePath/resources/assets/change-your-logo.svg",
+    '1x'   => "$wgScriptPath/openfs-icon.svg",
+    'icon' => "$wgScriptPath/openfs-icon.svg",
     'wordmark' => [
-        'src' => "$wgResourceBasePath/resources/assets/change-your-logo.svg",
-        'width' => 135,
-        'height' => 20,
+        'src'    => "$wgScriptPath/openfs-wordmark.svg",
+        'width'  => 160,
+        'height' => 28,
     ],
 ];
+
+# ── OpenFS Theme CSS ──────────────────────────────────────────────────────────
+$wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
+    $out->addInlineStyle( '
+        /* ── OpenFS Enterprise Theme ── */
+        :root {
+            --openfs-navy:       #0f172a;
+            --openfs-navy-mid:   #1e293b;
+            --openfs-navy-light: #334155;
+            --openfs-accent:     #6366f1;
+            --openfs-accent-dim: #4f46e5;
+            --openfs-text:       #f1f5f9;
+            --openfs-muted:      #94a3b8;
+            --openfs-border:     #334155;
+        }
+
+        /* Sidebar */
+        .mw-sidebar,
+        .vector-sidebar,
+        #mw-sidebar-checkbox ~ .mw-sidebar,
+        .mw-table-of-contents-container,
+        .vector-sidebar-container,
+        .vector-sidebar-container-no-toc {
+            background: var(--openfs-navy) !important;
+            border-color: var(--openfs-border) !important;
+        }
+
+        /* Sidebar portal headings */
+        .vector-menu-portal > .vector-menu-heading,
+        .mw-portlet > h3,
+        .mw-portlet-label {
+            color: var(--openfs-muted) !important;
+            font-size: 0.7rem !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.08em !important;
+            text-transform: uppercase !important;
+            border-bottom: 1px solid var(--openfs-border) !important;
+            padding-bottom: 4px !important;
+        }
+
+        /* Sidebar nav links */
+        .vector-menu-portal .vector-menu-content a,
+        .mw-portlet .mw-portlet-body a,
+        #p-navigation a, #p-tb a, #p-cactions a {
+            color: var(--openfs-text) !important;
+            font-size: 0.875rem !important;
+        }
+        .vector-menu-portal .vector-menu-content a:hover,
+        .mw-portlet .mw-portlet-body a:hover {
+            color: #a5b4fc !important;
+            text-decoration: none !important;
+        }
+
+        /* Logo area background */
+        .mw-logo, .vector-header-start {
+            background: var(--openfs-navy) !important;
+        }
+
+        /* Top header */
+        .vector-header,
+        #vector-page-titlebar,
+        .mw-header {
+            background: var(--openfs-navy) !important;
+            border-bottom: 1px solid var(--openfs-border) !important;
+        }
+
+        /* Header links (user menu, etc.) */
+        .vector-user-menu .vector-menu-content a,
+        #p-personal a,
+        .vector-header a {
+            color: var(--openfs-text) !important;
+        }
+
+        /* Search bar */
+        .vector-search-box input[type="search"],
+        #searchInput {
+            background: var(--openfs-navy-mid) !important;
+            border-color: var(--openfs-border) !important;
+            color: var(--openfs-text) !important;
+            border-radius: 6px !important;
+        }
+        .vector-search-box input[type="search"]::placeholder {
+            color: var(--openfs-muted) !important;
+        }
+
+        /* Tabs (edit, view, history) */
+        .vector-page-toolbar,
+        .mw-portlet-views {
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        .vector-tab-noicon.selected a,
+        .selected a {
+            color: var(--openfs-accent) !important;
+            border-bottom: 2px solid var(--openfs-accent) !important;
+        }
+
+        /* Accent on links in content */
+        #mw-content-text a {
+            color: var(--openfs-accent-dim) !important;
+        }
+        #mw-content-text a:hover {
+            color: var(--openfs-accent) !important;
+        }
+
+        /* Page title */
+        .mw-page-title-main {
+            color: var(--openfs-navy) !important;
+        }
+
+        /* Sidebar toggle button */
+        .mw-checkbox-hack-button {
+            color: var(--openfs-text) !important;
+        }
+
+        /* Footer */
+        .mw-footer {
+            border-top: 1px solid var(--openfs-border) !important;
+            background: var(--openfs-navy) !important;
+            color: var(--openfs-muted) !important;
+        }
+        .mw-footer a { color: var(--openfs-muted) !important; }
+    ' );
+};
+
 
 # ── Uploads ───────────────────────────────────────────────────────────────────
 $wgEnableUploads = true;

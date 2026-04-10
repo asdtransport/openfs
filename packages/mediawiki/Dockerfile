@@ -4,8 +4,10 @@ FROM mediawiki:1.43
 RUN mkdir -p /var/www/data-seed /var/www/data
 COPY data/ /var/www/data-seed/
 
-# Copy LocalSettings and setup scripts
+# Copy LocalSettings, branding assets, and setup scripts
 COPY LocalSettings.php /var/www/html/LocalSettings.php
+COPY openfs-icon.svg /var/www/html/openfs-icon.svg
+COPY openfs-wordmark.svg /var/www/html/openfs-wordmark.svg
 COPY setup/ /var/www/html/setup/
 COPY entrypoint.sh /entrypoint.sh
 

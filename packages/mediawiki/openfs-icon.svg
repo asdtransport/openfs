@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
+  <rect width="50" height="50" rx="10" fill="#0f172a"/>
+  <!-- Folder icon -->
+  <path d="M10 18 Q10 14 14 14 L22 14 L24 17 L36 17 Q40 17 40 21 L40 34 Q40 38 36 38 L14 38 Q10 38 10 34 Z" fill="#334155"/>
+  <path d="M10 22 L40 22 L40 34 Q40 38 36 38 L14 38 Q10 38 10 34 Z" fill="#6366f1"/>
+  <text x="25" y="35" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="9" font-weight="700" fill="#f1f5f9" letter-spacing="0.5">OF</text>
+</svg>

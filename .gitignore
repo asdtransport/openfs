@@ -31,6 +31,8 @@ Thumbs.db
 !/packages/mediawiki/README.md
 !/packages/mediawiki/setup/
 !/packages/mediawiki/data/
+!/packages/mediawiki/openfs-icon.svg
+!/packages/mediawiki/openfs-wordmark.svg
 
 # ── Databases / data ─────────────────────────────────────────────────────────────
 *.db
