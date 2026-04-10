@@ -369,6 +369,13 @@ app.all("/mw/*", async (c) => {
     upstream.headers.forEach((value, key) => {
       if (key.toLowerCase() !== "transfer-encoding") responseHeaders.set(key, value);
     });
+    // Set-Cookie must use append — set() collapses multiple cookies to one,
+    // dropping session/username/token cookies and breaking MW login persistence.
+    const cookies = upstream.headers.getSetCookie?.() ?? [];
+    if (cookies.length > 0) {
+      responseHeaders.delete("set-cookie");
+      for (const c of cookies) responseHeaders.append("set-cookie", c);
+    }
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch (err: any) {
     return c.json({ error: "MediaWiki unavailable", detail: err.message }, 503);
