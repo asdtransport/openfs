@@ -288,6 +288,61 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
         html body .vector-toc-heading { color: #64748b !important; font-size: 0.68rem !important; letter-spacing: 0.1em !important; text-transform: uppercase !important; }
         html body .vector-toc-toggle { color: #64748b !important; }
 
+        /* ── Hamburger popup (unpinned floating menu) ── */
+        html body .vector-unpinned-container,
+        html body #vector-main-menu-unpinned-container,
+        html body .mw-portlet-vector-main-menu {
+            background-color: #0f172a !important;
+            border: 1px solid #334155 !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+        }
+        html body .vector-unpinned-container a,
+        html body #vector-main-menu-unpinned-container a {
+            color: #e2e8f0 !important;
+        }
+        html body .vector-unpinned-container h3,
+        html body #vector-main-menu-unpinned-container h3,
+        html body .vector-unpinned-container .mw-portlet-heading,
+        html body #vector-main-menu-unpinned-container .mw-portlet-heading {
+            background-color: #0f172a !important;
+            color: #64748b !important;
+        }
+        html body .vector-unpinned-container li,
+        html body .vector-unpinned-container ul,
+        html body #vector-main-menu-unpinned-container li,
+        html body #vector-main-menu-unpinned-container ul {
+            background-color: #0f172a !important;
+        }
+
+        /* ── Right column (Tools + Appearance panels) ── */
+        html body .vector-column-end .mw-portlet,
+        html body .vector-column-end .vector-menu-portal,
+        html body #vector-toc-unpinned-container,
+        html body .vector-page-toolbar-container {
+            background-color: #1e293b !important;
+            border: 1px solid #334155 !important;
+            border-radius: 6px !important;
+        }
+        html body .vector-column-end h3,
+        html body .vector-column-end .mw-portlet-heading,
+        html body .vector-column-end .mw-portlet-heading button {
+            background-color: #1e293b !important;
+            color: #64748b !important;
+            font-size: 0.68rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.08em !important;
+            text-transform: uppercase !important;
+        }
+        html body .vector-column-end a,
+        html body .vector-column-end li a {
+            color: #94a3b8 !important;
+        }
+        html body .vector-column-end a:hover { color: #a5b4fc !important; }
+        html body .vector-column-end li,
+        html body .vector-column-end ul {
+            background-color: #1e293b !important;
+        }
+
         /* ── Content area ── */
         #mw-content-text a { color: #4f46e5 !important; }
         #mw-content-text a:hover { color: #6366f1 !important; }
@@ -305,24 +360,6 @@ $wgHooks['BeforePageDisplay'][] = function ( $out, $skin ) {
             color: #64748b !important;
         }
         .mw-footer a { color: #64748b !important; }
-
-        /* Page title */
-        .mw-page-title-main {
-            color: var(--openfs-navy) !important;
-        }
-
-        /* Sidebar toggle button */
-        .mw-checkbox-hack-button {
-            color: var(--openfs-text) !important;
-        }
-
-        /* Footer */
-        .mw-footer {
-            border-top: 1px solid var(--openfs-border) !important;
-            background: var(--openfs-navy) !important;
-            color: var(--openfs-muted) !important;
-        }
-        .mw-footer a { color: var(--openfs-muted) !important; }
     ' );
 };
 
